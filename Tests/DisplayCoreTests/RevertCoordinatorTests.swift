@@ -112,13 +112,17 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     // Otherwise a slow user confirms a mode that was already reverted, and the
     // screen changes back under them.
     let clock = FakeClock()
+    let configurator = FakeConfigurator()
     let coordinator = RevertCoordinator(
-        configurator: FakeConfigurator(), clock: clock, window: 15)
+        configurator: configurator, clock: clock, window: 15)
 
     let change = try coordinator.begin(target: [1: target], previous: [1: previous])
     clock.advance(by: 20)
 
     #expect(throws: DisplayError.confirmationExpired) { try coordinator.confirm(change) }
+    // Only `begin`'s apply happened — an implementation that applied and then
+    // threw would slip past the expectation above without this.
+    #expect(configurator.applications.count == 1)
 }
 
 @Test func multiDisplayPlansAreCarriedThroughIntact() throws {
@@ -136,4 +140,76 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     #expect(configurator.applications.count == 2)
     #expect(configurator.applications[0].plan.count == 2)
     #expect(configurator.applications[1].plan.count == 2)
+}
+
+@Test func expireIfNeededRetriesAfterAFailedRevert() throws {
+    // The monitor that won't take the old mode back on the first try. The
+    // failure must not be swallowed, and it must not be mistaken for success —
+    // the next poll has to try again rather than treating this as resolved.
+    let clock = FakeClock()
+    let configurator = FakeConfigurator()
+    let coordinator = RevertCoordinator(configurator: configurator, clock: clock, window: 15)
+
+    let change = try coordinator.begin(target: [1: target], previous: [1: previous])
+    clock.advance(by: 15)
+
+    configurator.nextApplyError = .configurationFailed(code: 2_000)
+    #expect(throws: DisplayError.configurationFailed(code: 2_000)) {
+        _ = try coordinator.expireIfNeeded(change)
+    }
+    // Only the original `begin` apply is recorded — the failed revert attempt
+    // did not get marked as having happened.
+    #expect(configurator.applications.count == 1)
+
+    // A second attempt, with the fault cleared, must actually revert.
+    #expect(try coordinator.expireIfNeeded(change) == true)
+    #expect(configurator.applications.count == 2)
+    #expect(configurator.applications.last?.plan == [1: previous])
+}
+
+@Test func confirmAfterAnExplicitRevertIsRefused() throws {
+    // The screen was already put back. A confirm that arrives after that —
+    // whether stale or racing — must not reapply the mode the user rejected.
+    let configurator = FakeConfigurator()
+    let coordinator = RevertCoordinator(
+        configurator: configurator, clock: FakeClock(), window: 15)
+
+    let change = try coordinator.begin(target: [1: target], previous: [1: previous])
+    try coordinator.revert(change)
+
+    #expect(throws: DisplayError.confirmationExpired) { try coordinator.confirm(change) }
+    // Still just the two applications from begin + revert — confirm did not
+    // sneak a third one in.
+    #expect(configurator.applications.count == 2)
+    #expect(configurator.applications.last?.plan == [1: previous])
+}
+
+@Test func expireIfNeededIsIdempotentAfterTheFirstRevert() throws {
+    let clock = FakeClock()
+    let configurator = FakeConfigurator()
+    let coordinator = RevertCoordinator(configurator: configurator, clock: clock, window: 15)
+
+    let change = try coordinator.begin(target: [1: target], previous: [1: previous])
+    clock.advance(by: 15)
+
+    #expect(try coordinator.expireIfNeeded(change) == true)
+    #expect(try coordinator.expireIfNeeded(change) == false)
+
+    // One revert transaction, not two — a second poll tick must not be a
+    // second CoreGraphics transaction (and a second visible flicker).
+    #expect(configurator.applications.count == 2)
+}
+
+@Test func confirmAtExactlyTheDeadlineIsRefused() throws {
+    // The expiry side already pins 14.9s -> not yet and 15.0s -> revert now.
+    // This pins the matching boundary on confirm: at exactly the deadline the
+    // window is over, so confirm must refuse rather than sneak in.
+    let clock = FakeClock()
+    let coordinator = RevertCoordinator(
+        configurator: FakeConfigurator(), clock: clock, window: 15)
+
+    let change = try coordinator.begin(target: [1: target], previous: [1: previous])
+    clock.advance(by: 15.0)
+
+    #expect(throws: DisplayError.confirmationExpired) { try coordinator.confirm(change) }
 }

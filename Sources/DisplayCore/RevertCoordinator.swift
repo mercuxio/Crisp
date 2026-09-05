@@ -2,7 +2,12 @@ import CoreGraphics
 import Foundation
 
 /// A mode change that has been applied for the session but not yet confirmed.
+///
+/// `id` is a token minted by `begin` so the coordinator can recognize the same
+/// change across repeated calls and tell whether it has already been resolved
+/// (confirmed or reverted). It carries no meaning outside this file.
 public struct PendingChange: Equatable, Sendable {
+    let id: Int
     public let target: [CGDirectDisplayID: DisplayMode]
     public let previous: [CGDirectDisplayID: DisplayMode]
     public let deadline: Double
@@ -13,10 +18,19 @@ public struct PendingChange: Equatable, Sendable {
 /// Holds no timer and no UI. Callers drive `expireIfNeeded` from whatever run
 /// loop they have — a countdown panel in the app, a polling prompt in the CLI —
 /// which is also why every branch of this is testable in microseconds.
+///
+/// Not thread-safe. `nextChangeID` and `resolvedChangeIDs` are plain mutable
+/// state with no synchronization, so every call — `begin`, `confirm`,
+/// `revert`, `expireIfNeeded` — must be made from a single execution context
+/// (e.g. the main actor, or a single-threaded polling loop). A driver that
+/// calls into this from more than one task or thread concurrently can race on
+/// that state; that is the caller's obligation to prevent, not this type's.
 public final class RevertCoordinator {
     private let configurator: DisplayConfiguring
     private let clock: MonotonicClock
     private let window: TimeInterval
+    private var nextChangeID = 0
+    private var resolvedChangeIDs: Set<Int> = []
 
     public init(
         configurator: DisplayConfiguring,
@@ -38,7 +52,10 @@ public final class RevertCoordinator {
         // happened.
         try configurator.apply(target, scope: .session)
 
+        let id = nextChangeID
+        nextChangeID += 1
         return PendingChange(
+            id: id,
             target: target,
             previous: previous,
             deadline: clock.nowSeconds + window)
@@ -49,25 +66,45 @@ public final class RevertCoordinator {
     /// The scope is the caller's: confirming means "keep this now", which is
     /// not the same as "keep this across reboots". Only an explicit request for
     /// permanence should escalate past `.session` — see spec §8.1.
+    ///
+    /// Refused once the change has already been resolved — confirmed, reverted
+    /// by hand, or expired — so a confirm that arrives late (or races a revert)
+    /// can never reapply a mode the user already escaped.
     public func confirm(
         _ change: PendingChange,
         scope: ConfigurationScope = .permanent
     ) throws {
+        guard !resolvedChangeIDs.contains(change.id) else {
+            throw DisplayError.confirmationExpired
+        }
         guard clock.nowSeconds < change.deadline else {
             throw DisplayError.confirmationExpired
         }
         try configurator.apply(change.target, scope: scope)
+        resolvedChangeIDs.insert(change.id)
     }
 
     /// Put it back. Session scope, because the previous mode's own permanence
     /// was already settled when it was applied.
+    ///
+    /// A no-op if the change was already resolved. Only marked resolved once
+    /// `apply` returns without throwing — if it throws, nothing is recorded,
+    /// so a subsequent retry (from `expireIfNeeded` or a direct call) tries
+    /// the apply again instead of being silently treated as done.
     public func revert(_ change: PendingChange) throws {
+        guard !resolvedChangeIDs.contains(change.id) else { return }
         try configurator.apply(change.previous, scope: .session)
+        resolvedChangeIDs.insert(change.id)
     }
 
     /// Reverts if the deadline has passed. Returns whether it did.
+    ///
+    /// Returns `false` — without touching the configurator — for a change
+    /// that was already resolved, so polling this after the first successful
+    /// revert is a no-op rather than a repeat transaction.
     @discardableResult
     public func expireIfNeeded(_ change: PendingChange) throws -> Bool {
+        guard !resolvedChangeIDs.contains(change.id) else { return false }
         guard clock.nowSeconds >= change.deadline else { return false }
         try revert(change)
         return true
