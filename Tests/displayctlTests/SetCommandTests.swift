@@ -323,3 +323,40 @@ private func coordinator(
 
     #expect(report.contains("no HiDPI modes"))
 }
+
+@Test func aFailedConfirmWhoseRevertAlsoFailsSaysSoAndNamesTheRecoveryCommand() throws {
+    // The residual the final re-review found: the `.confirmed` arm reached
+    // the same dead end as B2 — screen stuck on a mode the user could not
+    // keep — but reported it as a bare numeric CoreGraphics code, because
+    // only the decline and timeout arms routed through the honest message.
+    //
+    // `begin`'s apply succeeds; the confirm arrives past the deadline so it
+    // throws at the time guard without applying; both revert attempts are
+    // then refused.
+    let configurator = CLIFakeConfigurator()
+    configurator.applyScript = [
+        nil, .configurationFailed(code: 500), .configurationFailed(code: 500),
+    ]
+    let clock = SteppingClock()
+    let confirmation = ClockAdvancingConfirmation(clock: clock, advanceBy: 15, answer: .confirmed)
+
+    do {
+        _ = try runSet(
+            options(timeout: 15),
+            enumerator: fixture(),
+            coordinator: coordinator(configurator, clock: clock, window: 15),
+            confirmation: confirmation)
+        Issue.record("expected the revert failure to surface")
+    } catch let failure as RevertAfterConfirmationFailed {
+        // The revert's refusal, not `.confirmationExpired` — the stuck screen
+        // is the thing the user has to act on.
+        #expect(failure.underlying == .configurationFailed(code: 500))
+        let message = Renderer.describeRevertAfterConfirmationFailed(failure.underlying)
+        #expect(message.contains("displayctl restore"))
+        #expect(!message.contains("was reverted"))
+    }
+
+    // One retry, not a loop: begin, then two refused revert attempts.
+    #expect(configurator.applyAttempts == 3)
+    #expect(configurator.applications.count == 1)
+}

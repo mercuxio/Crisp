@@ -175,10 +175,16 @@ func runSet(
             // often: the confirmation arrived after the deadline, so nothing
             // was ever applied on their behalf). The safe resting state is
             // the mode they came from, not the one they just failed to keep.
-            // Best-effort only — if this also fails there is nothing further
-            // to try here, and the original error is what the caller needs
-            // to see and act on (F1a).
-            try? coordinator.revert(change)
+            // If putting it back also fails, the screen is stuck on a mode
+            // the user could not keep, and that — not the confirm error — is
+            // what they need told, with the recovery command. If it succeeds,
+            // the original error is what explains why they are back where
+            // they started.
+            do {
+                try revertOrThrowRevertFailure(change, coordinator: coordinator)
+            } catch let revertFailure as RevertAfterConfirmationFailed {
+                throw revertFailure
+            }
             throw error
         }
         return SetOutcome(result: .applied, message: Renderer.renderApplied(chosen, permanent: options.permanent))
@@ -210,8 +216,8 @@ private func revertRetryingOnce(
     }
 }
 
-/// The one path where the revert that follows a declined or timed-out
-/// confirmation definitely failed (F1b's retry exhausted). Distinct from a
+/// The revert that follows a failed, declined, or timed-out confirmation
+/// definitely failed (F1b's retry exhausted). Distinct from a
 /// plain `DisplayError` so `main.swift` can render a message that says
 /// plainly the revert failed and the display is still on the new mode —
 /// `Renderer.describe(.configurationFailed)` names a numeric CoreGraphics

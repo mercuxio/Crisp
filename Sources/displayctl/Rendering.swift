@@ -110,8 +110,8 @@ public enum Renderer {
         "Already at \(describeMode(mode)). Nothing to do."
     }
 
-    /// B2: the one path where the revert that follows a declined or
-    /// timed-out confirmation definitely failed (F1b's retry exhausted). The
+    /// B2: the revert that follows a failed, declined, or timed-out
+    /// confirmation definitely failed (F1b's retry exhausted). The
     /// user was told "reverting automatically" and it did not happen — this
     /// must say so plainly, say the display is still on the new mode (never
     /// that the old one is back), and point at the recovery command.
