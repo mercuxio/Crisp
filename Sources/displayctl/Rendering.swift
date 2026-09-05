@@ -110,6 +110,16 @@ public enum Renderer {
         "Already at \(describeMode(mode)). Nothing to do."
     }
 
+    /// B2: the one path where the revert that follows a declined or
+    /// timed-out confirmation definitely failed (F1b's retry exhausted). The
+    /// user was told "reverting automatically" and it did not happen — this
+    /// must say so plainly, say the display is still on the new mode (never
+    /// that the old one is back), and point at the recovery command.
+    public static func describeRevertAfterConfirmationFailed(_ underlying: DisplayError) -> String {
+        "reverting to the previous mode failed (\(describe(underlying))) — "
+            + "the display is still on the new mode; run 'displayctl restore' to recover"
+    }
+
     public static func describe(_ error: DisplayError) -> String {
         switch error {
         case .noSuchDisplay(let id):

@@ -38,6 +38,8 @@ do {
     }
 } catch let error as ParseError {
     fail(error.message)
+} catch let error as RevertAfterConfirmationFailed {
+    fail(Renderer.describeRevertAfterConfirmationFailed(error.underlying))
 } catch let error as DisplayError {
     fail(Renderer.describe(error))
 } catch {

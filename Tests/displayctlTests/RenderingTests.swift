@@ -122,6 +122,20 @@ private let native = DisplayMode(
     #expect(text.contains("1800"))
 }
 
+// MARK: - B2: the revert-after-decline/timeout failure has its own message
+
+@Test func describeRevertAfterConfirmationFailedNamesTheFailureAndPointsToRestore() {
+    // The one path where the revert definitely failed: the user was told
+    // "reverting automatically" and it did not happen twice in a row. The
+    // message must say the revert itself failed, must not claim the old
+    // mode is back, and must send the user to the recovery command.
+    let text = Renderer.describeRevertAfterConfirmationFailed(.configurationFailed(code: 500))
+    #expect(text.contains("revert"))
+    #expect(!text.contains("was reverted"))
+    #expect(!text.contains("Reverted to"))
+    #expect(text.contains("displayctl restore"))
+}
+
 @Test func describeConfirmationExpiredDoesNotClaimARevertHappenedAndPointsToRestore() {
     // F1: a throw from `confirm` no longer implies a successful revert. The
     // renderer cannot know whether the attempted revert actually landed, so

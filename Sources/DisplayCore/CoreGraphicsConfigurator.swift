@@ -39,9 +39,11 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
         self.completionTimeout = completionTimeout
     }
 
-    /// Whether a mode reached via its `ioDisplayModeID` hint is still the mode
-    /// that was recorded. Spec §10: the hint gives an O(1) apply, but it is
-    /// validated every time so staleness is detected rather than acted on.
+    /// Full six-field signature equality between `mode` and `signature` —
+    /// nothing more. Spec §10: the `ioDisplayModeID` hint gives an O(1)
+    /// apply, and this equality check is what makes a stale hint (or one
+    /// that now points at a different variant sharing its ID) detectable,
+    /// so the caller can fall back to a full scan instead of acting on it.
     public static func hintIsValid(_ mode: DisplayMode, against signature: ModeSignature) -> Bool {
         mode.signature == signature
     }

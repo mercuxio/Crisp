@@ -25,6 +25,14 @@ public struct PendingChange: Equatable, Sendable {
 /// (e.g. the main actor, or a single-threaded polling loop). A driver that
 /// calls into this from more than one task or thread concurrently can race on
 /// that state; that is the caller's obligation to prevent, not this type's.
+///
+/// `expireIfNeeded` and `secondsRemaining` have no caller on this branch:
+/// `displayctl set` drives the revert entirely off `awaitConfirmation`
+/// returning, which is legitimate because that wait is itself bounded by the
+/// same timeout. Both are well covered by unit tests, but neither has run
+/// against a real countdown driven by a run loop — they exist for the
+/// milestone-3 menu bar app's countdown panel, so do not treat them as
+/// field-proven until something actually calls them end to end.
 public final class RevertCoordinator {
     private let configurator: DisplayConfiguring
     private let clock: MonotonicClock

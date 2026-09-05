@@ -18,20 +18,30 @@ LIST
   --json         machine-readable output
 
 SET
-  --display N    which display to change (default: the main display)
+  --display N    which display to change (default: display 1, as shown by 'list')
   --hz N         require this refresh rate, e.g. --hz 59.94
   --hidpi        require a HiDPI mode
   --no-hidpi     require a native (non-HiDPI) mode
   --unsafe       allow modes the OS does not advertise as usable
   --stretched    allow modes with non-square pixels
-  --permanent    keep the mode across logout and reboot
+  --permanent    keep the mode across logout and reboot ('restore' cannot undo this)
   --yes, -y      skip the confirmation countdown
   --timeout N    seconds to wait for confirmation (default 15)
 
 RESTORE
-  Returns every display to its default mode. This is the recovery path:
-  if a mode leaves a screen unreadable, run 'displayctl restore'.
+  Returns every display to the system's saved configuration. This is the
+  recovery path for a session-scoped change: if a mode leaves a screen
+  unreadable, run 'displayctl restore'. A confirmed --permanent change
+  writes that saved configuration, so 'restore' will not undo it.
 """
+
+/// D5: the one wording for "there is no display at this index" — shared by
+/// `list --display N` (`collectDisplays`) and `set --display N`
+/// (`resolveDisplay`) so the two paths can never say it two different ways
+/// again.
+func noSuchDisplayIndexMessage(_ index: Int, connectedCount: Int) -> String {
+    "no display \(index) — this Mac has \(connectedCount); run 'displayctl list'"
+}
 
 func collectDisplays(
     _ enumerator: DisplayEnumerating,
@@ -63,7 +73,7 @@ func collectDisplays(
     }
 
     if let wanted = options.displayIndex, results.isEmpty {
-        throw ParseError("no display \(wanted) — run 'displayctl list' to see what is connected")
+        throw ParseError(noSuchDisplayIndexMessage(wanted, connectedCount: ids.count))
     }
     return results
 }
@@ -106,8 +116,7 @@ func resolveDisplay(
     }
     guard let index else { return first }
     guard index >= 1, index <= ids.count else {
-        throw ParseError(
-            "no display \(index) — this Mac has \(ids.count); run 'displayctl list'")
+        throw ParseError(noSuchDisplayIndexMessage(index, connectedCount: ids.count))
     }
     return ids[index - 1]
 }
@@ -175,11 +184,11 @@ func runSet(
         return SetOutcome(result: .applied, message: Renderer.renderApplied(chosen, permanent: options.permanent))
 
     case .declined:
-        try revertRetryingOnce(change, coordinator: coordinator)
+        try revertOrThrowRevertFailure(change, coordinator: coordinator)
         return SetOutcome(result: .reverted(reason: .declined), message: Renderer.renderReverted(current))
 
     case .timedOut:
-        try revertRetryingOnce(change, coordinator: coordinator)
+        try revertOrThrowRevertFailure(change, coordinator: coordinator)
         return SetOutcome(result: .reverted(reason: .timedOut), message: Renderer.renderReverted(current))
     }
 }
@@ -201,7 +210,28 @@ private func revertRetryingOnce(
     }
 }
 
+/// The one path where the revert that follows a declined or timed-out
+/// confirmation definitely failed (F1b's retry exhausted). Distinct from a
+/// plain `DisplayError` so `main.swift` can render a message that says
+/// plainly the revert failed and the display is still on the new mode —
+/// `Renderer.describe(.configurationFailed)` names a numeric CoreGraphics
+/// code and nothing else, which is not enough here, where the caller (unlike
+/// the renderer) knows for certain which direction failed.
+struct RevertAfterConfirmationFailed: Error {
+    let underlying: DisplayError
+}
+
+private func revertOrThrowRevertFailure(
+    _ change: PendingChange, coordinator: RevertCoordinator
+) throws {
+    do {
+        try revertRetryingOnce(change, coordinator: coordinator)
+    } catch let error as DisplayError {
+        throw RevertAfterConfirmationFailed(underlying: error)
+    }
+}
+
 func runRestore(configurator: DisplayConfiguring) throws -> String {
     try configurator.restoreDefaults()
-    return "Asked the system to restore every display to its default mode."
+    return "Asked the system to restore every display to its saved configuration."
 }

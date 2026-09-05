@@ -256,9 +256,13 @@ private func coordinator(
     #expect(configurator.applications.last?.scope == .session)
 }
 
-@Test func revertFailingTwiceExhaustsTheRetryAndRethrows() throws {
+@Test func revertFailingTwiceExhaustsTheRetryAndThrowsARevertFailure() throws {
     // One retry, not a loop: a second failure means CoreGraphics is refusing
-    // outright, and `runSet` must surface that rather than spinning.
+    // outright. B2: that specific case — the revert after a decline/timeout
+    // definitely failed — must surface as `RevertAfterConfirmationFailed`,
+    // not a plain `DisplayError`, so the caller can tell the user the revert
+    // itself failed rather than rendering the generic "configuration was
+    // rejected" text.
     let configurator = CLIFakeConfigurator()
     // `begin`'s apply succeeds; both the initial revert attempt and its one
     // retry fail.
@@ -266,13 +270,19 @@ private func coordinator(
         nil, .configurationFailed(code: 500), .configurationFailed(code: 500),
     ]
 
-    #expect(throws: DisplayError.configurationFailed(code: 500)) {
+    var caught: RevertAfterConfirmationFailed?
+    do {
         _ = try runSet(
             options(),
             enumerator: fixture(),
             coordinator: coordinator(configurator),
             confirmation: ScriptedConfirmation(.timedOut))
+        Issue.record("expected runSet to throw RevertAfterConfirmationFailed")
+    } catch let error as RevertAfterConfirmationFailed {
+        caught = error
     }
+
+    #expect(caught?.underlying == .configurationFailed(code: 500))
 
     // Three attempts total: `begin`'s apply succeeds (recorded), then the
     // revert is tried exactly twice (the initial attempt plus one retry) and

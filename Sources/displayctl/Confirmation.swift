@@ -26,12 +26,8 @@ public struct StandardInputConfirmation: ConfirmationSource {
         let box = AnswerBox()
 
         Thread.detachNewThread {
-            let line = readLine(strippingNewline: true)?
-                .trimmingCharacters(in: .whitespaces)
-                .lowercased()
-            box.answer = (line == nil || line == "n" || line == "no")
-                ? .declined
-                : .confirmed
+            let line = readLine(strippingNewline: true)
+            box.answer = Self.confirmation(forLine: line)
             semaphore.signal()
         }
 
@@ -39,6 +35,23 @@ public struct StandardInputConfirmation: ConfirmationSource {
             return .timedOut
         }
         return box.answer
+    }
+
+    /// Maps one line of raw stdin input to a `Confirmation`. `nil` means EOF
+    /// (Ctrl-D with nothing typed).
+    ///
+    /// Allowlist, not a denylist: confirms only on `y` or `yes`, after
+    /// trimming whitespace and lowercasing. Every other input — empty,
+    /// whitespace-only, garbage, an arrow-key escape sequence, and EOF —
+    /// declines. This is deliberate: the prompt reads `[y/N]`, and bare Enter
+    /// is the most natural blind keystroke there is for someone staring at a
+    /// screen they cannot read. Failing open here would keep the mode that
+    /// broke their display.
+    static func confirmation(forLine line: String?) -> Confirmation {
+        guard let trimmed = line?.trimmingCharacters(in: .whitespaces).lowercased() else {
+            return .declined
+        }
+        return (trimmed == "y" || trimmed == "yes") ? .confirmed : .declined
     }
 
     private final class AnswerBox: @unchecked Sendable {
