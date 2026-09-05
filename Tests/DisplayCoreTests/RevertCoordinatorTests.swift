@@ -136,12 +136,17 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     let change = try coordinator.begin(
         target: [1: target, 2: second],
         previous: [1: previous, 2: second])
-    try coordinator.confirm(change)
+    // Explicit `.permanent`, not the default. Since the default became
+    // `.session` this is the only place a multi-display plan is confirmed at
+    // permanent scope, and dropping the argument would quietly retire that
+    // coverage while the transaction counts below kept passing.
+    try coordinator.confirm(change, scope: .permanent)
 
     // One transaction per phase, both displays inside it. Spec §8.1.
     #expect(configurator.applications.count == 2)
     #expect(configurator.applications[0].plan.count == 2)
     #expect(configurator.applications[1].plan.count == 2)
+    #expect(configurator.applications[1].scope == .permanent)
 }
 
 @Test func expireIfNeededRetriesAfterAFailedRevert() throws {

@@ -90,7 +90,7 @@ public enum ArgumentParser {
 
     private static func parseList(_ rest: [String]) throws -> ListOptions {
         var options = ListOptions()
-        var seen: Set<String> = []
+        var seen: [String: String] = [:]
         var index = 0
         while index < rest.count {
             try markSeen(rest[index], canonical: rest[index], in: &seen, for: "list")
@@ -116,7 +116,7 @@ public enum ArgumentParser {
         let (width, height) = try parseResolution(resolution)
 
         var options = SetOptions(width: width, height: height)
-        var seen: Set<String> = []
+        var seen: [String: String] = [:]
         var index = 1
         while index < rest.count {
             let canonical = canonicalSetFlag(rest[index])
@@ -174,22 +174,34 @@ public enum ArgumentParser {
     /// be seen to notice the mistake. `flag` is the token actually typed, used
     /// only for the error message; `canonical` is what gets recorded as seen,
     /// so aliases (or contradictory opposites) of the same option collide with
-    /// each other. When `flag` differs from `canonical`, the message names
-    /// both spellings — otherwise "'-y' was given more than once" is false
-    /// when `-y` appeared exactly once and `--yes` was the earlier repeat.
+    /// each other. `seen` maps each canonical key to the token actually typed
+    /// first, because the collision message has to name what the user wrote:
+    /// "'-y' was given more than once" is false when `-y` appeared exactly
+    /// once and `--yes` was the earlier one, and "'--hidpi' and '--no-hidpi'
+    /// are the same option" is false in the other direction — they are
+    /// opposites, and saying so is the whole reason to reject them.
     private static func markSeen(
-        _ flag: String, canonical: String, in seen: inout Set<String>, for verb: String
+        _ flag: String, canonical: String, in seen: inout [String: String], for verb: String
     ) throws {
         guard flag.hasPrefix("-") else { return }
-        guard seen.insert(canonical).inserted else {
-            if flag == canonical {
-                throw ParseError("'\(flag)' was given more than once for '\(verb)'")
-            }
-            throw ParseError(
-                "'\(flag)' and '\(canonical)' are the same option for '\(verb)' "
-                    + "— it was given more than once")
+        guard let first = seen.updateValue(flag, forKey: canonical) else { return }
+
+        if first == flag {
+            throw ParseError("'\(flag)' was given more than once for '\(verb)'")
         }
+        if contradictorySetFlags.contains([first, flag]) {
+            throw ParseError(
+                "'\(first)' and '\(flag)' contradict each other for '\(verb)' "
+                    + "— give one or the other")
+        }
+        throw ParseError(
+            "'\(first)' and '\(flag)' are the same option for '\(verb)' "
+                + "— it was given more than once")
     }
+
+    /// Flag pairs that share a canonical key but mean opposite things, so the
+    /// collision message says "contradict" instead of "the same option".
+    private static let contradictorySetFlags: [Set<String>] = [["--hidpi", "--no-hidpi"]]
 
     /// Accepts `2560x1440` and `2560X1440` — someone typing this blind should
     /// not be defeated by caps lock.

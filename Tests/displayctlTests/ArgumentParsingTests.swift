@@ -125,15 +125,27 @@ import Testing
 
 // MARK: - F3: --hidpi and --no-hidpi contradict each other
 
-@Test func hidpiAndNoHidpiTogetherAreRejectedRegardlessOfOrder() {
+@Test func hidpiAndNoHidpiTogetherAreRejectedRegardlessOfOrder() throws {
     // Unlike `-y`/`--yes`, these two are not harmless aliases — giving both
     // changes which mode actually gets applied to the screen, so silent
     // last-wins is the dangerous outcome here, not just a redundant flag.
-    #expect(throws: ParseError.self) {
-        try ArgumentParser.parse(["set", "1920x1080", "--hidpi", "--no-hidpi"])
-    }
-    #expect(throws: ParseError.self) {
-        try ArgumentParser.parse(["set", "1920x1080", "--no-hidpi", "--hidpi"])
+    //
+    // The message is asserted, not just the throw. Sharing a canonical key
+    // with `--hidpi` is an implementation detail; telling the user that
+    // `--no-hidpi` "is the same option" as `--hidpi`, or that one of them was
+    // "given more than once" when each appeared once, is simply untrue, and
+    // this is the tool people reach for when they cannot read the screen.
+    for order in [["--hidpi", "--no-hidpi"], ["--no-hidpi", "--hidpi"]] {
+        do {
+            _ = try ArgumentParser.parse(["set", "1920x1080"] + order)
+            Issue.record("expected a ParseError for \(order)")
+        } catch let error as ParseError {
+            #expect(error.message.contains("--hidpi"))
+            #expect(error.message.contains("--no-hidpi"))
+            #expect(error.message.contains("contradict"))
+            #expect(!error.message.contains("more than once"))
+            #expect(!error.message.contains("the same option"))
+        }
     }
 }
 
