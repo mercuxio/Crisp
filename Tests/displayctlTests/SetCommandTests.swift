@@ -1,3 +1,10 @@
+// This file imports both `Testing` and `displayctl`, and BOTH define a type
+// named `Confirmation`. It compiles today only because every reference here is
+// leading-dot inferred (`ScriptedConfirmation(.confirmed)`). Writing a bare
+// `Confirmation` in this file is a hard ambiguity error — qualify it as
+// `displayctl.Confirmation`, or keep the reference inferred. The production
+// type keeps its name deliberately: it is public API the menu bar app will
+// consume, and it does not get renamed to suit a test-only collision.
 import CoreGraphics
 import Foundation
 import Testing
