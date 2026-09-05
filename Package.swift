@@ -21,5 +21,13 @@ let package = Package(
                 .product(name: "Testing", package: "swift-testing"),
             ]
         ),
+        .testTarget(
+            name: "displayctlTests",
+            dependencies: [
+                "displayctl",
+                "DisplayCore",
+                .product(name: "Testing", package: "swift-testing"),
+            ]
+        ),
     ]
 )
