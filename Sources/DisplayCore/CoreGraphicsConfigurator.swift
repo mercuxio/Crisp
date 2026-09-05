@@ -46,6 +46,16 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
         mode.signature == signature
     }
 
+    /// Maps our scope to CoreGraphics' vocabulary. Spec §8.1: session is the
+    /// only scope ever applied first — extracted to its own function so that
+    /// fact is a tested, documented mapping rather than an inline ternary.
+    static func cgOption(for scope: ConfigurationScope) -> CGConfigureOption {
+        switch scope {
+        case .session: return .forSession
+        case .permanent: return .permanently
+        }
+    }
+
     public func apply(
         _ plan: [CGDirectDisplayID: DisplayMode],
         scope: ConfigurationScope
@@ -58,8 +68,10 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
             throw DisplayError.configurationFailed(code: beginResult.rawValue)
         }
 
-        // From here on, every failure path must cancel — an abandoned
-        // configuration handle leaves the window server in a transaction.
+        // Configure-loop failures must cancel: CoreGraphics has been told
+        // about modes but nothing has been completed yet, so cancelling here
+        // is well-defined and required — an abandoned handle at this point
+        // leaves the window server sitting mid-transaction.
         do {
             for (displayID, mode) in plan {
                 let raw = try resolveRawMode(mode, on: displayID)
@@ -74,7 +86,7 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
             throw error
         }
 
-        let option: CGConfigureOption = scope == .permanent ? .permanently : .forSession
+        let option = Self.cgOption(for: scope)
         // CGDisplayConfigRef (an OpaquePointer) is not Sendable, so it cannot
         // be captured directly in the @Sendable closure Watchdog.run requires.
         // Boxed the same way Watchdog boxes its result: the pointer only ever
@@ -83,10 +95,20 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
         // function has already returned control) or is abandoned in place —
         // never touched from two threads at once.
         let configurationBox = UncheckedBox(configuration)
+        // If this throws (a watchdog timeout), do NOT cancel here: the
+        // worker thread Watchdog.run spawned is still inside
+        // CGCompleteDisplayConfiguration, holding this same handle. Calling
+        // CGCancelDisplayConfiguration from this thread would race a handle
+        // that is live on another thread. The abandoned call is left to
+        // resolve — or never resolve — on its own; see Watchdog's doc comment.
         let completion = try Watchdog.run(timeout: completionTimeout) {
             CGCompleteDisplayConfiguration(configurationBox.value, option).rawValue
         }
 
+        // If this fails — not a timeout, CGCompleteDisplayConfiguration
+        // returned normally with a failure code — do NOT cancel either:
+        // completing the configuration, successfully or not, consumes the
+        // handle. There is no open transaction left to cancel.
         guard completion == CGError.success.rawValue else {
             throw DisplayError.configurationFailed(code: completion)
         }
@@ -113,28 +135,58 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
             throw DisplayError.modeEnumerationFailed(displayID)
         }
 
-        func signature(of candidate: CGDisplayMode) -> ModeSignature {
-            ModeConversion.signature(
-                pointWidth: candidate.width,
-                pointHeight: candidate.height,
-                pixelWidth: candidate.pixelWidth,
-                pixelHeight: candidate.pixelHeight,
-                refreshRateHz: candidate.refreshRate,
-                isUsableForDesktopGUI: candidate.isUsableForDesktopGUI())
-        }
+        let candidates = raw.map { (ioDisplayModeID: $0.ioDisplayModeID, signature: signature(of: $0)) }
 
+        guard let index = ModePick.index(in: candidates, matching: mode) else {
+            throw DisplayError.modeUnavailable(mode.signature)
+        }
+        return raw[index]
+    }
+
+    private func signature(of candidate: CGDisplayMode) -> ModeSignature {
+        ModeConversion.signature(
+            pointWidth: candidate.width,
+            pointHeight: candidate.height,
+            pixelWidth: candidate.pixelWidth,
+            pixelHeight: candidate.pixelHeight,
+            refreshRateHz: candidate.refreshRate,
+            isUsableForDesktopGUI: candidate.isUsableForDesktopGUI())
+    }
+}
+
+/// The pure form of `resolveRawMode`'s search, extracted so it can be tested
+/// without a real `CGDisplayMode` — which cannot be constructed in a test;
+/// see the note at the top of `CoreGraphicsEnumerator.swift`: anything worth
+/// testing takes primitives instead.
+///
+/// Mirrors `resolveRawMode` exactly and shares its safety gate: try the O(1)
+/// hint first, validated through `CoreGraphicsConfigurator.hintIsValid` (the
+/// same gate the apply path uses — not a second, untested copy of it), then
+/// fall back to a full scan by signature if the hint is stale or collides
+/// with the wrong variant sharing its ID.
+enum ModePick {
+    /// The index into `candidates` of the mode matching `mode`, or nil if
+    /// none match.
+    static func index(
+        in candidates: [(ioDisplayModeID: Int32, signature: ModeSignature)],
+        matching mode: DisplayMode
+    ) -> Int? {
         // Fast path: the hint, validated.
-        if let hinted = raw.first(where: { $0.ioDisplayModeID == mode.ioDisplayModeID }),
-           signature(of: hinted) == mode.signature {
-            return hinted
+        if let hintIndex = candidates.firstIndex(where: { $0.ioDisplayModeID == mode.ioDisplayModeID }) {
+            let hinted = candidates[hintIndex]
+            let hintedAsMode = DisplayMode(
+                signature: hinted.signature,
+                ioDisplayModeID: hinted.ioDisplayModeID,
+                isStretched: false,
+                source: .publicAPI)
+            if CoreGraphicsConfigurator.hintIsValid(hintedAsMode, against: mode.signature) {
+                return hintIndex
+            }
         }
 
-        // Slow path: the hint was stale, so search by signature.
-        if let found = raw.first(where: { signature(of: $0) == mode.signature }) {
-            return found
-        }
-
-        throw DisplayError.modeUnavailable(mode.signature)
+        // Slow path: the hint was stale (or pointed at the wrong variant of
+        // a duplicated ID) — search everything by signature.
+        return candidates.firstIndex(where: { $0.signature == mode.signature })
     }
 }
 

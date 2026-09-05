@@ -41,6 +41,65 @@ import Testing
     #expect(!CoreGraphicsConfigurator.hintIsValid(whatIDNowPointsAt, against: stored.signature))
 }
 
+// MARK: - Scope-to-CGConfigureOption mapping
+
+@Test func cgOptionMapsSessionScopeToForSession() {
+    #expect(CoreGraphicsConfigurator.cgOption(for: .session) == .forSession)
+}
+
+@Test func cgOptionMapsPermanentScopeToPermanently() {
+    #expect(CoreGraphicsConfigurator.cgOption(for: .permanent) == .permanently)
+}
+
+// MARK: - Mode pick logic (the real gate behind resolveRawMode)
+
+@Test func modePickTakesTheFastPathWhenTheHintIsValid() {
+    let target = makeMode(point: (2560, 1440), pixel: (5120, 2880), id: 48)
+    let candidates: [(ioDisplayModeID: Int32, signature: ModeSignature)] = [
+        (ioDisplayModeID: 1, signature: makeMode(point: (1920, 1080), pixel: (1920, 1080), id: 1).signature),
+        (ioDisplayModeID: 48, signature: target.signature),
+    ]
+
+    #expect(ModePick.index(in: candidates, matching: target) == 1)
+}
+
+@Test func modePickFallsThroughToTheSignatureScanWhenTheHintIsStale() {
+    // Spec §4.2/§10: an ID collision after a hardware or OS change should
+    // fall back to a full scan rather than apply the wrong mode.
+    let target = makeMode(point: (2560, 1440), pixel: (5120, 2880), id: 48)
+    let candidates: [(ioDisplayModeID: Int32, signature: ModeSignature)] = [
+        // id 48 now points at something else entirely.
+        (ioDisplayModeID: 48, signature: makeMode(point: (1920, 1080), pixel: (1920, 1080), id: 48).signature),
+        // the real target is elsewhere, under a different id.
+        (ioDisplayModeID: 99, signature: target.signature),
+    ]
+
+    #expect(ModePick.index(in: candidates, matching: target) == 1)
+}
+
+@Test func modePickFindsTheRightVariantWhenADuplicateIDsFirstMatchIsWrong() {
+    // Two candidates share ioDisplayModeID 48; the first one CoreGraphics
+    // happens to list is the wrong variant. The fast path must reject it
+    // (hintIsValid fails) and the slow path must still find the correct one.
+    let target = makeMode(point: (2560, 1440), pixel: (5120, 2880), id: 48)
+    let candidates: [(ioDisplayModeID: Int32, signature: ModeSignature)] = [
+        (ioDisplayModeID: 48, signature: makeMode(point: (1920, 1080), pixel: (1920, 1080), id: 48).signature),
+        (ioDisplayModeID: 48, signature: target.signature),
+    ]
+
+    #expect(ModePick.index(in: candidates, matching: target) == 1)
+}
+
+@Test func modePickReturnsNilWhenNothingMatches() {
+    // resolveRawMode turns this into DisplayError.modeUnavailable.
+    let target = makeMode(point: (2560, 1440), pixel: (5120, 2880), id: 48)
+    let candidates: [(ioDisplayModeID: Int32, signature: ModeSignature)] = [
+        (ioDisplayModeID: 1, signature: makeMode(point: (1920, 1080), pixel: (1920, 1080), id: 1).signature),
+    ]
+
+    #expect(ModePick.index(in: candidates, matching: target) == nil)
+}
+
 // MARK: - The fake honours the contract
 
 @Test func fakeConfiguratorRecordsScopeAndPlan() throws {
