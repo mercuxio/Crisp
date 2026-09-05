@@ -64,6 +64,32 @@ is milestone-3-shaped work.
 ## 7. Manual hardware verification is owed
 
 Nothing on this branch has been run against a real display. Every review and every implementer was
-explicitly forbidden from applying a mode, because the machine's owner was not at the keyboard. The
-commands to run, by hand, with someone watching the screen, are in the repository README section of
-this file's sibling — see `CLAUDE.md`, and run them one at a time.
+explicitly forbidden from applying a mode, because the machine's owner was not at the keyboard.
+
+Run these by hand, one at a time, while watching the screen, with a phone or a second machine ready
+in case a mode leaves the display unreadable. `displayctl restore` is the escape hatch and can be
+typed blind.
+
+Read-only first:
+
+```bash
+swift build --build-system native
+.build/debug/displayctl list                 # every display and mode appears
+.build/debug/displayctl list --all --json    # the JSON parses
+.build/debug/displayctl doctor               # the HiDPI mode count is NOT 0
+```
+
+A doctor report showing 0 HiDPI modes means the §4.1 options-dictionary key regressed — stop there.
+
+Then the write path, which actually changes the screen:
+
+1. `displayctl set <a resolution list showed>` — answer `y`. The mode should stick.
+2. Repeat, answer `n`. The old mode should come straight back.
+3. Repeat, and **type nothing**. After 15s it should revert on its own. This is the property the
+   whole product rests on, and it has never been observed.
+4. Repeat, and press Enter without typing anything. It must revert — bare Enter declines. This was
+   a real bug (it used to confirm) and the fix has only ever been verified in tests.
+5. `displayctl restore` — every display back to the system's saved configuration.
+6. With two displays attached, repeat 1-3 with `--display 2` and confirm the *other* screen changed.
+7. `displayctl set <resolution> --permanent`, confirm, log out and back in, check it survived. Note
+   that `restore` will not undo this one — see item 4 above.
