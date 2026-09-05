@@ -97,3 +97,18 @@ final class FakeConfigurator: DisplayConfiguring, @unchecked Sendable {
 
     var scopeSequence: [ConfigurationScope] { applications.map(\.scope) }
 }
+
+/// A clock that only moves when a test moves it.
+final class FakeClock: MonotonicClock, @unchecked Sendable {
+    private var seconds: Double
+
+    init(startingAt seconds: Double = 0) {
+        self.seconds = seconds
+    }
+
+    var nowSeconds: Double { seconds }
+
+    func advance(by interval: Double) {
+        seconds += interval
+    }
+}
