@@ -159,16 +159,45 @@ func runSet(
     case .confirmed:
         // Session scope unless the user asked for permanence. Confirming is
         // about keeping the mode now, not about surviving a reboot.
-        try coordinator.confirm(change, scope: options.permanent ? .permanent : .session)
+        do {
+            try coordinator.confirm(change, scope: options.permanent ? .permanent : .session)
+        } catch {
+            // The user asked to keep this mode and the system refused (most
+            // often: the confirmation arrived after the deadline, so nothing
+            // was ever applied on their behalf). The safe resting state is
+            // the mode they came from, not the one they just failed to keep.
+            // Best-effort only — if this also fails there is nothing further
+            // to try here, and the original error is what the caller needs
+            // to see and act on (F1a).
+            try? coordinator.revert(change)
+            throw error
+        }
         return SetOutcome(result: .applied, message: Renderer.renderApplied(chosen, permanent: options.permanent))
 
     case .declined:
-        try coordinator.revert(change)
+        try revertRetryingOnce(change, coordinator: coordinator)
         return SetOutcome(result: .reverted(reason: .declined), message: Renderer.renderReverted(current))
 
     case .timedOut:
-        try coordinator.revert(change)
+        try revertRetryingOnce(change, coordinator: coordinator)
         return SetOutcome(result: .reverted(reason: .timedOut), message: Renderer.renderReverted(current))
+    }
+}
+
+/// Reverts, and if CoreGraphics refuses, tries exactly once more before
+/// giving up (F1b). A screen the user cannot read is not a place to loop —
+/// one retry absorbs a transient rejection; a second failure means
+/// CoreGraphics is refusing outright, and the caller needs the error, not a
+/// spin. `RevertCoordinator.revert` only marks a change resolved after a
+/// successful apply (commit 9680b83), so this retry lands on the same
+/// pending change rather than double-applying.
+private func revertRetryingOnce(
+    _ change: PendingChange, coordinator: RevertCoordinator
+) throws {
+    do {
+        try coordinator.revert(change)
+    } catch {
+        try coordinator.revert(change)
     }
 }
 

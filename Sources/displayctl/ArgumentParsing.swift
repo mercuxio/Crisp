@@ -119,11 +119,7 @@ public enum ArgumentParser {
         var seen: Set<String> = []
         var index = 1
         while index < rest.count {
-            // `--yes` and `-y` set the same field, so they share one canonical
-            // key: `set 1920x1080 -y --yes` is just as much a repeat as
-            // `--yes --yes`, and the ambiguity is worse when the two spellings
-            // disagree about a valued flag.
-            let canonical = (rest[index] == "-y") ? "--yes" : rest[index]
+            let canonical = canonicalSetFlag(rest[index])
             try markSeen(rest[index], canonical: canonical, in: &seen, for: "set")
             switch rest[index] {
             case "--display":
@@ -152,6 +148,24 @@ public enum ArgumentParser {
         return options
     }
 
+    /// Maps a `set` flag to the key that tracks whether it (or an alias, or an
+    /// opposite that changes the same field) has already been given.
+    ///
+    /// `--yes` and `-y` are two spellings of the same field, so they share a
+    /// key: `set 1920x1080 -y --yes` is just as much a repeat as `--yes
+    /// --yes`. `--hidpi` and `--no-hidpi` are not spellings of each other, but
+    /// they set the same field to opposite values, and giving both is the
+    /// contradiction that actually changes which mode gets applied to a
+    /// screen — silent last-wins there is worse than for the harmless
+    /// `-y`/`--yes` pair, so it collides on one key too.
+    private static func canonicalSetFlag(_ flag: String) -> String {
+        switch flag {
+        case "-y": return "--yes"
+        case "--no-hidpi": return "--hidpi"
+        default: return flag
+        }
+    }
+
     /// Rejects a flag that has already been given once.
     ///
     /// A repeated flag with a value is silent last-wins otherwise: `set
@@ -159,13 +173,21 @@ public enum ArgumentParser {
     /// did not name, and `set` is the tool reached for when the screen cannot
     /// be seen to notice the mistake. `flag` is the token actually typed, used
     /// only for the error message; `canonical` is what gets recorded as seen,
-    /// so aliases of the same option (`--yes` / `-y`) collide with each other.
+    /// so aliases (or contradictory opposites) of the same option collide with
+    /// each other. When `flag` differs from `canonical`, the message names
+    /// both spellings — otherwise "'-y' was given more than once" is false
+    /// when `-y` appeared exactly once and `--yes` was the earlier repeat.
     private static func markSeen(
         _ flag: String, canonical: String, in seen: inout Set<String>, for verb: String
     ) throws {
         guard flag.hasPrefix("-") else { return }
         guard seen.insert(canonical).inserted else {
-            throw ParseError("'\(flag)' was given more than once for '\(verb)'")
+            if flag == canonical {
+                throw ParseError("'\(flag)' was given more than once for '\(verb)'")
+            }
+            throw ParseError(
+                "'\(flag)' and '\(canonical)' are the same option for '\(verb)' "
+                    + "— it was given more than once")
         }
     }
 

@@ -24,7 +24,9 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
         configurator: configurator, clock: FakeClock(), window: 15)
 
     let change = try coordinator.begin(target: [1: target], previous: [1: previous])
-    try coordinator.confirm(change)
+    // `.session` is now `confirm`'s default (F6) — say `.permanent` out loud
+    // since that is exactly what this test means to exercise.
+    try coordinator.confirm(change, scope: .permanent)
 
     #expect(configurator.scopeSequence == [.session, .permanent])
     #expect(configurator.applications[1].plan == [1: target])

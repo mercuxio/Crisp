@@ -122,3 +122,44 @@ import Testing
         try ArgumentParser.parse(["set", "1920x1080", "--yes", "-y"])
     }
 }
+
+// MARK: - F3: --hidpi and --no-hidpi contradict each other
+
+@Test func hidpiAndNoHidpiTogetherAreRejectedRegardlessOfOrder() {
+    // Unlike `-y`/`--yes`, these two are not harmless aliases — giving both
+    // changes which mode actually gets applied to the screen, so silent
+    // last-wins is the dangerous outcome here, not just a redundant flag.
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--hidpi", "--no-hidpi"])
+    }
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--no-hidpi", "--hidpi"])
+    }
+}
+
+// MARK: - F4: the repeat error names both spellings when they differ
+
+@Test func theRepeatErrorNamesBothSpellingsWhenTheTypedTokenDiffersFromTheCanonical() throws {
+    // `set 1920x1080 --yes -y` previously reported "'-y' was given more than
+    // once", which is false — `-y` appeared exactly once. The message must
+    // name both `-y` and `--yes` as the same option.
+    do {
+        _ = try ArgumentParser.parse(["set", "1920x1080", "--yes", "-y"])
+        Issue.record("expected a ParseError")
+    } catch let error as ParseError {
+        #expect(error.message.contains("-y"))
+        #expect(error.message.contains("--yes"))
+    }
+}
+
+@Test func theRepeatErrorNamesTheExactTokenTwiceWhenItIsTrulyRepeated() throws {
+    // The ordinary case — the same spelling twice — keeps the original,
+    // simpler wording rather than saying a flag is "the same option" as
+    // itself.
+    do {
+        _ = try ArgumentParser.parse(["set", "1920x1080", "--yes", "--yes"])
+        Issue.record("expected a ParseError")
+    } catch let error as ParseError {
+        #expect(error.message == "'--yes' was given more than once for 'set'")
+    }
+}

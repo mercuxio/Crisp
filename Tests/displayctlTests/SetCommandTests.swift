@@ -203,6 +203,77 @@ private func coordinator(
     #expect(configurator.applications[0].plan == [1: stretched])
 }
 
+// MARK: - F1: confirm/revert failures no longer abandon an applied change
+
+@Test func confirmArrivingPastTheDeadlineRevertsInsteadOfAbandoningTheChange() throws {
+    // F1(a): confirm throws `.confirmationExpired` because the answer arrived
+    // late. `runSet` must still put the screen back rather than leaving it on
+    // the new mode with nothing scheduled to restore it — assert on the
+    // recorded applications, not just the throw, so an implementation that
+    // rethrows without reverting fails this test.
+    let configurator = CLIFakeConfigurator()
+    let clock = SteppingClock()
+    let confirmation = ClockAdvancingConfirmation(clock: clock, advanceBy: 15, answer: .confirmed)
+
+    #expect(throws: DisplayError.confirmationExpired) {
+        _ = try runSet(
+            options(timeout: 15),
+            enumerator: fixture(),
+            coordinator: coordinator(configurator, clock: clock, window: 15),
+            confirmation: confirmation)
+    }
+
+    #expect(configurator.applications.count == 2)
+    #expect(configurator.applications[0].plan == [1: hidpi])
+    #expect(configurator.applications.last?.plan == [1: native])
+    #expect(configurator.applications.last?.scope == .session)
+}
+
+@Test func revertFailingOnceIsRetriedAndSucceeds() throws {
+    // F1(b): CoreGraphics rejects the first revert attempt. The retry must
+    // land, and `runSet` must return the reverted outcome rather than
+    // throwing.
+    let configurator = CLIFakeConfigurator()
+    // `begin`'s apply succeeds; the first revert attempt fails; the retry
+    // (script exhausted) succeeds.
+    configurator.applyScript = [nil, .configurationFailed(code: 500)]
+
+    let outcome = try runSet(
+        options(),
+        enumerator: fixture(),
+        coordinator: coordinator(configurator),
+        confirmation: ScriptedConfirmation(.declined))
+
+    #expect(outcome.result == .reverted(reason: .declined))
+    #expect(configurator.applications.last?.plan == [1: native])
+    #expect(configurator.applications.last?.scope == .session)
+}
+
+@Test func revertFailingTwiceExhaustsTheRetryAndRethrows() throws {
+    // One retry, not a loop: a second failure means CoreGraphics is refusing
+    // outright, and `runSet` must surface that rather than spinning.
+    let configurator = CLIFakeConfigurator()
+    // `begin`'s apply succeeds; both the initial revert attempt and its one
+    // retry fail.
+    configurator.applyScript = [
+        nil, .configurationFailed(code: 500), .configurationFailed(code: 500),
+    ]
+
+    #expect(throws: DisplayError.configurationFailed(code: 500)) {
+        _ = try runSet(
+            options(),
+            enumerator: fixture(),
+            coordinator: coordinator(configurator),
+            confirmation: ScriptedConfirmation(.timedOut))
+    }
+
+    // Three attempts total: `begin`'s apply succeeds (recorded), then the
+    // revert is tried exactly twice (the initial attempt plus one retry) and
+    // both fail, so neither is recorded as a successful application.
+    #expect(configurator.applyAttempts == 3)
+    #expect(configurator.applications.count == 1)
+}
+
 // MARK: - restore
 
 @Test func restoreGoesStraightToTheConfigurator() throws {

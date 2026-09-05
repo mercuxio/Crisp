@@ -77,3 +77,59 @@ private let native = DisplayMode(
     #expect(modes[0]["refreshMilliHz"] as? Int == 60_000)
     #expect(modes[0]["isCurrent"] as? Bool == true)
 }
+
+// MARK: - F2: Renderer.describe, one test per DisplayError case
+
+@Test func describeNamesTheDisplayIDForNoSuchDisplay() {
+    #expect(Renderer.describe(.noSuchDisplay(7)).contains("7"))
+}
+
+@Test func describeNamesTheDisplayIDForModeEnumerationFailed() {
+    #expect(Renderer.describe(.modeEnumerationFailed(7)).contains("7"))
+}
+
+@Test func describeNamesTheDisplayIDForCurrentModeUnavailable() {
+    #expect(Renderer.describe(.currentModeUnavailable(7)).contains("7"))
+}
+
+@Test func describeNamesTheCoreGraphicsCodeForConfigurationFailed() {
+    #expect(Renderer.describe(.configurationFailed(code: 1_000)).contains("1000"))
+}
+
+@Test func describeCompletionTimedOutDoesNotOverclaimAndPointsToRestore() {
+    // The A2 fix round's whole deliverable was this string (F2's own
+    // reason for existing): it must not assert the display was left alone
+    // or already put back, since the renderer cannot know that, and it must
+    // send the user to the recovery command.
+    let text = Renderer.describe(.completionTimedOut(seconds: 5))
+    #expect(!text.contains("was reverted"))
+    #expect(!text.contains("already restored"))
+    #expect(!text.contains("left alone"))
+    #expect(text.contains("displayctl restore"))
+}
+
+@Test func describeNamesTheSavedSizeForModeUnavailable() {
+    let signature = ModeSignature(
+        pointWidth: 1920, pointHeight: 1080,
+        pixelWidth: 1920, pixelHeight: 1080,
+        refreshMilliHz: 60_000, isSafe: true)
+    #expect(Renderer.describe(.modeUnavailable(signature)).contains("1920x1080"))
+}
+
+@Test func describeNamesTheRequestedSizeForNoMatchingMode() {
+    let text = Renderer.describe(.noMatchingMode(requestedWidth: 3200, requestedHeight: 1800))
+    #expect(text.contains("3200"))
+    #expect(text.contains("1800"))
+}
+
+@Test func describeConfirmationExpiredDoesNotClaimARevertHappenedAndPointsToRestore() {
+    // F1: a throw from `confirm` no longer implies a successful revert. The
+    // renderer cannot know whether the attempted revert actually landed, so
+    // the wording must not assert one did, and must send the user to the
+    // recovery command instead.
+    let text = Renderer.describe(.confirmationExpired)
+    #expect(!text.contains("was reverted"))
+    #expect(!text.contains("already restored"))
+    #expect(!text.contains("left alone"))
+    #expect(text.contains("displayctl restore"))
+}

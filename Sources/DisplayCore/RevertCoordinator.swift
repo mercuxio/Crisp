@@ -65,14 +65,16 @@ public final class RevertCoordinator {
     ///
     /// The scope is the caller's: confirming means "keep this now", which is
     /// not the same as "keep this across reboots". Only an explicit request for
-    /// permanence should escalate past `.session` — see spec §8.1.
+    /// permanence should escalate past `.session` — see spec §8.1. The default
+    /// is therefore `.session`: a call that can outlive a reboot needs the
+    /// caller to say so explicitly, not fall into permanence by omission.
     ///
     /// Refused once the change has already been resolved — confirmed, reverted
     /// by hand, or expired — so a confirm that arrives late (or races a revert)
     /// can never reapply a mode the user already escaped.
     public func confirm(
         _ change: PendingChange,
-        scope: ConfigurationScope = .permanent
+        scope: ConfigurationScope = .session
     ) throws {
         guard !resolvedChangeIDs.contains(change.id) else {
             throw DisplayError.confirmationExpired

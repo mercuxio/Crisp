@@ -128,7 +128,12 @@ public enum Renderer {
         case .noMatchingMode(let width, let height):
             return "this display has no \(width)x\(height) mode — run 'displayctl list --all' to see what it does have"
         case .confirmationExpired:
-            return "the change was not confirmed in time and was reverted"
+            // Must not claim a revert happened: the renderer has no way to
+            // know whether the attempted revert that follows an expired (or
+            // otherwise failed) confirmation actually succeeded. Same
+            // discipline as `.completionTimedOut` above.
+            return "the confirmation deadline passed before your answer was recorded — "
+                + "the display may still be on the new mode; run 'displayctl restore' to recover"
         }
     }
 }
