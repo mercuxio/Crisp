@@ -66,3 +66,34 @@ final class FakeEnumerator: DisplayEnumerating, @unchecked Sendable {
         return hit
     }
 }
+
+/// Records what it was asked to do and never touches a real display.
+final class FakeConfigurator: DisplayConfiguring, @unchecked Sendable {
+    struct Application: Equatable {
+        let plan: [CGDirectDisplayID: DisplayMode]
+        let scope: ConfigurationScope
+    }
+
+    private(set) var applications: [Application] = []
+    private(set) var restoreCount = 0
+
+    /// Thrown by the next `apply` call, then cleared.
+    var nextApplyError: DisplayError?
+
+    func apply(
+        _ plan: [CGDirectDisplayID: DisplayMode],
+        scope: ConfigurationScope
+    ) throws {
+        if let error = nextApplyError {
+            nextApplyError = nil
+            throw error
+        }
+        applications.append(Application(plan: plan, scope: scope))
+    }
+
+    func restoreDefaults() throws {
+        restoreCount += 1
+    }
+
+    var scopeSequence: [ConfigurationScope] { applications.map(\.scope) }
+}
