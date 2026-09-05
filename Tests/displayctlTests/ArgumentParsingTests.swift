@@ -85,3 +85,40 @@ import Testing
     // how someone ends up at a resolution they did not ask for.
     #expect(throws: ParseError.self) { try ArgumentParser.parse(["list", "--jsonn"]) }
 }
+
+@Test func aRepeatedDisplayFlagIsRejectedRatherThanLastWins() {
+    // `set --display 1 --display 2` reconfiguring display 2 while the user
+    // believes they named display 1 is exactly the mistake this guards
+    // against — silently accepting it means changing a screen nobody named.
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["list", "--display", "1", "--display", "2"])
+    }
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--display", "1", "--display", "2"])
+    }
+}
+
+@Test func aRepeatedValuedFlagOnSetIsRejected() {
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--timeout", "10", "--timeout", "20"])
+    }
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--hz", "60", "--hz", "59.94"])
+    }
+}
+
+@Test func aRepeatedBooleanFlagOnSetIsRejected() {
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--permanent", "--permanent"])
+    }
+}
+
+@Test func theTwoSpellingsOfAssumeYesShareOneSlot() {
+    // `-y` and `--yes` set the same field, so mixing them is a repeat too.
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "-y", "--yes"])
+    }
+    #expect(throws: ParseError.self) {
+        try ArgumentParser.parse(["set", "1920x1080", "--yes", "-y"])
+    }
+}

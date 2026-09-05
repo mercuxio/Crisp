@@ -90,8 +90,10 @@ public enum ArgumentParser {
 
     private static func parseList(_ rest: [String]) throws -> ListOptions {
         var options = ListOptions()
+        var seen: Set<String> = []
         var index = 0
         while index < rest.count {
+            try markSeen(rest[index], canonical: rest[index], in: &seen, for: "list")
             switch rest[index] {
             case "--display":
                 options.displayIndex = try value(rest, after: &index, flag: "--display")
@@ -114,8 +116,15 @@ public enum ArgumentParser {
         let (width, height) = try parseResolution(resolution)
 
         var options = SetOptions(width: width, height: height)
+        var seen: Set<String> = []
         var index = 1
         while index < rest.count {
+            // `--yes` and `-y` set the same field, so they share one canonical
+            // key: `set 1920x1080 -y --yes` is just as much a repeat as
+            // `--yes --yes`, and the ambiguity is worse when the two spellings
+            // disagree about a valued flag.
+            let canonical = (rest[index] == "-y") ? "--yes" : rest[index]
+            try markSeen(rest[index], canonical: canonical, in: &seen, for: "set")
             switch rest[index] {
             case "--display":
                 options.displayIndex = try value(rest, after: &index, flag: "--display")
@@ -141,6 +150,23 @@ public enum ArgumentParser {
             index += 1
         }
         return options
+    }
+
+    /// Rejects a flag that has already been given once.
+    ///
+    /// A repeated flag with a value is silent last-wins otherwise: `set
+    /// 2560x1440 --display 1 --display 2` would reconfigure a screen the user
+    /// did not name, and `set` is the tool reached for when the screen cannot
+    /// be seen to notice the mistake. `flag` is the token actually typed, used
+    /// only for the error message; `canonical` is what gets recorded as seen,
+    /// so aliases of the same option (`--yes` / `-y`) collide with each other.
+    private static func markSeen(
+        _ flag: String, canonical: String, in seen: inout Set<String>, for verb: String
+    ) throws {
+        guard flag.hasPrefix("-") else { return }
+        guard seen.insert(canonical).inserted else {
+            throw ParseError("'\(flag)' was given more than once for '\(verb)'")
+        }
     }
 
     /// Accepts `2560x1440` and `2560X1440` — someone typing this blind should

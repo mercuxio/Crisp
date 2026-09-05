@@ -81,6 +81,35 @@ public enum Renderer {
         return String(decoding: data, as: UTF8.self)
     }
 
+    static func describeMode(_ mode: DisplayMode) -> String {
+        var text = "\(mode.pointWidth) x \(mode.pointHeight)"
+        if mode.isHiDPI { text += " (\(mode.pixelWidth) x \(mode.pixelHeight) HiDPI)" }
+        if mode.refreshMilliHz > 0 { text += " @ \(formatRefresh(mode.refreshMilliHz))" }
+        return text
+    }
+
+    public static func renderSetPrompt(_ mode: DisplayMode, seconds: Int) -> String {
+        """
+        Switched to \(describeMode(mode)).
+
+        Keep this resolution? [y/N] — reverting automatically in \(seconds)s.
+        """
+    }
+
+    public static func renderApplied(_ mode: DisplayMode, permanent: Bool) -> String {
+        permanent
+            ? "Keeping \(describeMode(mode)). It will survive a reboot."
+            : "Keeping \(describeMode(mode)) until you log out."
+    }
+
+    public static func renderReverted(_ previous: DisplayMode) -> String {
+        "Reverted to \(describeMode(previous))."
+    }
+
+    public static func renderAlreadyActive(_ mode: DisplayMode) -> String {
+        "Already at \(describeMode(mode)). Nothing to do."
+    }
+
     public static func describe(_ error: DisplayError) -> String {
         switch error {
         case .noSuchDisplay(let id):
@@ -92,7 +121,8 @@ public enum Renderer {
         case .configurationFailed(let code):
             return "the display configuration was rejected (CoreGraphics error \(code))"
         case .completionTimedOut(let seconds):
-            return "the display configuration did not complete within \(Int(seconds))s"
+            return "the display configuration did not confirm completion within \(Int(seconds))s — "
+                + "it may or may not have taken effect; run 'displayctl restore' to recover"
         case .modeUnavailable(let signature):
             return "the saved mode \(signature.pointWidth)x\(signature.pointHeight) is no longer available"
         case .noMatchingMode(let width, let height):

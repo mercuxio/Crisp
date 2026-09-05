@@ -14,12 +14,27 @@ do {
         print(helpText)
     case .list(let options):
         print(try runList(options, enumerator: enumerator))
-    case .set:
-        fail("'set' is not wired up yet")
+    case .set(let options):
+        let configurator = CoreGraphicsConfigurator()
+        let coordinator = RevertCoordinator(
+            configurator: configurator,
+            clock: SystemClock(),
+            window: TimeInterval(options.timeoutSeconds))
+
+        let outcome = try runSet(
+            options,
+            enumerator: enumerator,
+            coordinator: coordinator,
+            confirmation: StandardInputConfirmation())
+
+        print(outcome.message)
+        if case .reverted = outcome.result { exit(2) }
+
     case .restore:
-        fail("'restore' is not wired up yet")
+        print(try runRestore(configurator: CoreGraphicsConfigurator()))
+
     case .doctor:
-        fail("'doctor' is not wired up yet")
+        print(try Doctor.report(enumerator: enumerator))
     }
 } catch let error as ParseError {
     fail(error.message)
