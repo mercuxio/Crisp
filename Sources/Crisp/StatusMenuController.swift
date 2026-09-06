@@ -2,7 +2,8 @@ import AppKit
 import CoreGraphics
 import DisplayCore
 
-/// The menu bar item, its menu, and the confirm-or-revert countdown.
+/// The menu bar item, the panel it drops down, and the confirm-or-revert
+/// countdown.
 ///
 /// This is the "caller" that `RevertCoordinator`'s documentation talks about:
 /// nothing inside DisplayCore fires a revert on its own, so the entire safety
@@ -13,12 +14,29 @@ import DisplayCore
 /// requires — it is explicitly not thread-safe and must be driven from a single
 /// execution context.
 @MainActor
-final class StatusMenuController: NSObject, NSMenuDelegate {
+final class StatusMenuController: NSObject {
+    private enum Metrics {
+        /// Above the first heading or grid; the grid contributes 2 more of its
+        /// own, and the footer carries its bottom padding internally.
+        static let topPadding: CGFloat = 4
+        /// Around a display name — which appears only when there are two or
+        /// more displays to tell apart.
+        static let headingTop: CGFloat = 6
+        static let headingBottom: CGFloat = 2
+        /// Around an error, which replaces the whole list and so has no grid
+        /// beneath it to borrow margins from.
+        static let messagePadding: CGFloat = 8
+    }
+
     private let enumerator: DisplayEnumerating
     private let configurator: DisplayConfiguring
     private let coordinator: RevertCoordinator
     private let statusItem: NSStatusItem
-    private let panel = ConfirmationPanel()
+
+    /// The resolution list. A window rather than a menu, which is what lets the
+    /// gear open its own dropdown without this one vanishing — see `StatusPanel`.
+    private let dropdown = StatusPanel()
+    private let confirmation = ConfirmationPanel()
     private lazy var settings = SettingsMenu(restore: { [weak self] in self?.restoreDefaults() })
 
     /// The same page InOut's footer points at — one tip jar for both apps.
@@ -40,100 +58,155 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         statusItem.button?.image = NSImage(
             systemSymbolName: "display", accessibilityDescription: "Crisp")
         statusItem.button?.image?.isTemplate = true
-
-        let menu = NSMenu()
-        menu.delegate = self
-        statusItem.menu = menu
+        // No `statusItem.menu`: assigning one hands the click to AppKit, which
+        // opens a menu — the one thing this app can no longer use.
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(toggle)
     }
 
-    // MARK: - Menu construction
+    // MARK: - The panel
 
-    /// Rebuilt every time the menu opens.
+    @objc private func toggle() {
+        if dropdown.isShowing {
+            dropdown.close()
+            return
+        }
+        guard let button = statusItem.button else { return }
+        dropdown.setContent(buildContent())
+        dropdown.show(under: button, quit: { [weak self] in self?.quit() })
+    }
+
+    /// Rebuilt every time the panel opens.
     ///
     /// This is how hot-plug is handled in this version: a display attached or
-    /// removed while the menu was closed simply appears or disappears the next
+    /// removed while the panel was closed simply appears or disappears the next
     /// time it is opened, with no reconfiguration callback, no debounce, and no
-    /// self-inflicted-event suppression to get wrong. A live-updating menu is a
+    /// self-inflicted-event suppression to get wrong. A live-updating list is a
     /// later feature; this one cannot show a stale list at the moment of use,
     /// which is the property that actually matters.
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
+    private func buildContent() -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        // Leading, not `.width`: stretching the grid would pull its two columns
+        // apart. The views that *do* want the full width ask for it below.
+        stack.alignment = .leading
+        stack.spacing = 0
+        stack.edgeInsets = NSEdgeInsets(
+            top: Metrics.topPadding, left: 0, bottom: 0, right: 0)
 
         do {
             let ids = try enumerator.onlineDisplayIDs()
             let showHeadings = MenuModel.showsHeadings(displayCount: ids.count)
 
             for (index, id) in ids.enumerated() {
-                if index > 0 { menu.addItem(.separator()) }
+                if index > 0 { Self.addFullWidth(Self.separator(), to: stack) }
 
                 let device = try enumerator.device(for: id)
                 let current = try enumerator.currentMode(for: id)
                 let modes = try enumerator.modes(for: id)
 
                 if showHeadings {
-                    menu.addItem(disabledItem(device.localizedName))
+                    stack.addArrangedSubview(Self.heading(device.localizedName))
                 }
 
-                // One item for the whole grid. The columns are a single view, so
-                // this is the last point at which the display's rows can be
-                // described as menu items at all.
-                let grid = NSMenuItem()
-                grid.view = ResolutionGridView(
-                    groups: MenuModel.groups(for: modes, current: current),
-                    pick: { [weak self] signature in
-                        self?.apply(signature, on: id)
-                    })
-                menu.addItem(grid)
+                stack.addArrangedSubview(
+                    ResolutionGridView(
+                        groups: MenuModel.groups(for: modes, current: current),
+                        pick: { [weak self] signature in
+                            // Closed first: the countdown opens from `apply`,
+                            // and this panel floats above it otherwise.
+                            self?.dropdown.close()
+                            self?.apply(signature, on: id)
+                        }))
             }
         } catch {
-            menu.addItem(disabledItem(ErrorText.describe(error)))
+            stack.addArrangedSubview(Self.message(ErrorText.describe(error)))
         }
 
-        menu.addItem(.separator())
+        Self.addFullWidth(Self.separator(), to: stack)
 
-        // Restore Defaults moved into Settings. It is a rare, deliberate action,
-        // and the countdown — not a menu item — is what rescues an unreadable
+        // Restore Defaults lives in Settings. It is a rare, deliberate action,
+        // and the countdown — not a list item — is what rescues an unreadable
         // screen, so it does not need to be one click away.
-        let footerView = MenuFooterView(
-            target: self,
-            settings: #selector(openSettings(_:)),
-            coffee: #selector(openCoffee),
-            quit: #selector(quit))
-        let footer = NSMenuItem()
-        footer.view = footerView
-        menu.addItem(footer)
+        Self.addFullWidth(
+            MenuFooterView(
+                target: self,
+                settings: #selector(openSettings(_:)),
+                coffee: #selector(openCoffee),
+                quit: #selector(quit)),
+            to: stack)
 
-        // A custom view swallows ⌘Q, so the shortcut gets its own hidden item.
-        let quitShortcut = NSMenuItem(title: "Quit Crisp", action: #selector(quit), keyEquivalent: "q")
-        quitShortcut.target = self
-        quitShortcut.isHidden = true
-        menu.addItem(quitShortcut)
-
-        // Last, once every resolution row has had its say about how wide the
-        // menu is. Asking earlier would measure a menu that is still growing.
-        footerView.fit(toMenuWidth: menu.size.width)
+        return stack
     }
 
-    /// A label, not a command.
+    /// Add a view that should span the panel rather than hug its own content.
     ///
-    /// `isEnabled = false` alone is not enough: AppKit re-enables items with no
-    /// action when the menu has no delegate-driven validation, so the nil action
-    /// is what actually keeps a heading unclickable.
+    /// A separator that stopped short of the edges would read as a stray line,
+    /// and the footer cannot push quit out to the right margin without knowing
+    /// where that margin is.
+    private static func addFullWidth(_ view: NSView, to stack: NSStackView) {
+        stack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+
+    private static func separator() -> NSView {
+        let rule = NSBox()
+        rule.boxType = .separator
+        rule.translatesAutoresizingMaskIntoConstraints = false
+        // A horizontal separator has no intrinsic height, so without this it
+        // collapses to an invisible zero-height line.
+        rule.heightAnchor.constraint(equalToConstant: 1).isActive = true
+        return rule
+    }
+
+    /// A display's name, above its grid.
     ///
     /// Small, semibold and uppercased — the standard macOS section-header
-    /// treatment. It has to read as a label at a glance, because it sits in the
-    /// same column as rows that *are* clickable.
-    private func disabledItem(_ title: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        item.attributedTitle = NSAttributedString(
-            string: title.uppercased(),
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .kern: 0.6,
-            ])
-        return item
+    /// treatment, and the same one the HiDPI/Normal column headings use, so the
+    /// two levels of heading read as one system.
+    private static func heading(_ text: String) -> NSView {
+        let label = NSTextField(
+            labelWithAttributedString: NSAttributedString(
+                string: text.uppercased(),
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .kern: 0.6,
+                ]))
+        return inset(label, top: Metrics.headingTop, bottom: Metrics.headingBottom)
+    }
+
+    /// Shown in place of the list when the displays cannot be read at all.
+    private static func message(_ text: String) -> NSView {
+        let label = NSTextField(labelWithString: text)
+        label.font = .menuFont(ofSize: 12)
+        label.textColor = .secondaryLabelColor
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 3
+        label.preferredMaxLayoutWidth = 240
+        return inset(label, top: Metrics.messagePadding, bottom: Metrics.messagePadding)
+    }
+
+    /// Indent a label to where the resolutions start, and give it room above and
+    /// below.
+    ///
+    /// The leading inset comes from the grid so the two cannot drift apart: a
+    /// heading that does not line up with the rows under it reads as a mistake
+    /// rather than as a heading.
+    private static func inset(_ label: NSView, top: CGFloat, bottom: CGFloat) -> NSView {
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let container = NSView()
+        container.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(
+                equalTo: container.leadingAnchor, constant: ResolutionGridView.contentInset),
+            label.trailingAnchor.constraint(
+                lessThanOrEqualTo: container.trailingAnchor,
+                constant: -ResolutionGridView.contentInset),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: top),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottom),
+        ])
+        return container
     }
 
     /// The `NSScreen` backing a CoreGraphics display, if AppKit knows it.
@@ -153,9 +226,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     /// Apply one resolution and start the countdown.
     ///
-    /// Called from a row inside the grid view rather than from a menu item's
-    /// action, so there is no `sender` to unpack — the row closes the menu
-    /// before calling this.
+    /// Called from a row inside the grid rather than from a control with a
+    /// sender, so there is nothing to unpack — and the row has already closed
+    /// the panel by the time this runs.
     private func apply(_ signature: ModeSignature, on displayID: CGDirectDisplayID) {
         // One change at a time. A second change begun while the first is still
         // unconfirmed would leave `pending` pointing at the newer one and strand
@@ -180,7 +253,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                 previous: [displayID: previous])
             pending = change
 
-            panel.show(
+            confirmation.show(
                 headline: MenuModel.headline(for: target),
                 secondsRemaining: coordinator.secondsRemaining(for: change),
                 on: screen(for: displayID),
@@ -200,36 +273,21 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// Measure the gear now; open the dropdown once this menu has gone.
+    /// The panel deliberately stays open behind this.
     ///
-    /// `NSMenu.popUp` refuses outright while another menu is tracking — it
-    /// returns false and nothing appears — and `cancelTracking` is not
-    /// instantaneous, so neither calling it here nor deferring by one runloop
-    /// turn is enough. `menuDidClose` is the moment AppKit says the session is
-    /// over. By then the gear is gone, which is why its position is taken here.
+    /// It is the whole reason the resolution list is a window: a menu opened
+    /// during another menu's tracking session never appears — `popUp` returns
+    /// false and nothing happens — so the list used to have to tear itself down
+    /// before the gear could show anything. Anchored to a plain view in a plain
+    /// window, this is just a menu, and the list underneath is undisturbed.
     @objc private func openSettings(_ sender: NSButton) {
-        guard let window = sender.window else { return }
-        let onScreen = window.convertToScreen(sender.convert(sender.bounds, to: nil))
-        settingsAnchor = NSPoint(x: onScreen.minX, y: onScreen.minY - Self.dropdownGap)
-    }
-
-    /// Where the settings dropdown goes, set while the gear still exists and
-    /// consumed when the menu around it closes.
-    private var settingsAnchor: NSPoint?
-
-    /// Breathing room between the gear and the menu that drops out of it.
-    private static let dropdownGap: CGFloat = 4
-
-    func menuDidClose(_ menu: NSMenu) {
-        guard let anchor = settingsAnchor else { return }
-        settingsAnchor = nil
-        // Still asynchronous: this runs inside the closing menu's own teardown,
-        // and a menu opened from there would be opening into the session that
-        // has not quite finished ending.
-        DispatchQueue.main.async { [settings] in settings.show(at: anchor) }
+        settings.show(from: sender)
     }
 
     @objc private func openCoffee() {
+        // The browser is about to come forward, and a panel left floating at
+        // `.popUpMenu` level would sit on top of it.
+        dropdown.close()
         NSWorkspace.shared.open(Self.coffeeURL)
     }
 
@@ -256,7 +314,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             stopTicking()
             return
         }
-        panel.update(secondsRemaining: coordinator.secondsRemaining(for: change))
+        confirmation.update(secondsRemaining: coordinator.secondsRemaining(for: change))
         do {
             if try coordinator.expireIfNeeded(change) {
                 finish()
@@ -266,7 +324,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             // on its own, so stop pretending a countdown is still running and
             // tell the user how to recover.
             finish()
-            panel.showFailure(ErrorText.revertFailure(error))
+            confirmation.showFailure(ErrorText.revertFailure(error))
         }
     }
 
@@ -292,14 +350,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             finish()
         } catch {
             finish()
-            panel.showFailure(ErrorText.revertFailure(error))
+            confirmation.showFailure(ErrorText.revertFailure(error))
         }
     }
 
     private func finish() {
         stopTicking()
         pending = nil
-        panel.close()
+        confirmation.close()
     }
 
     private func presentAlert(_ message: String, _ detail: String) {

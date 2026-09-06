@@ -3,15 +3,13 @@ import DisplayCore
 
 /// One display's resolutions, HiDPI and Normal side by side.
 ///
-/// `NSMenu` has no notion of columns, so the whole grid is a single menu item
-/// with a custom view. That trade is deliberate: with both kinds stacked, a
-/// laptop panel produced a 32-row column taller than most of the resolutions it
-/// was offering. Side by side it fits on screen and the HiDPI/Normal split
-/// becomes structural rather than typographic.
+/// Side by side rather than stacked: with both kinds in one column, a laptop
+/// panel produced 32 rows — a list taller than most of the resolutions it was
+/// offering. Side by side it fits on screen, and the HiDPI/Normal split becomes
+/// structural rather than typographic.
 ///
-/// The cost is that AppKit stops helping inside a custom view — no highlight,
-/// no checkmark, no click-to-dismiss — so `RowButton` below does all three by
-/// hand.
+/// These are plain views, not menu items, so nothing draws a highlight or a
+/// checkmark for free. `RowButton` below does both by hand.
 @MainActor
 final class ResolutionGridView: NSView {
     private enum Metrics {
@@ -23,6 +21,12 @@ final class ResolutionGridView: NSView {
         static let rowSpacing: CGFloat = 0
         static let headingGap: CGFloat = 3
     }
+
+    /// Where this view's text starts, measured from its own leading edge.
+    ///
+    /// Published so the display-name headings above the grid can line up with
+    /// the resolutions inside it instead of guessing at the same number.
+    static let contentInset: CGFloat = Metrics.inset + RowButton.checkColumn
 
     init(groups: [MenuModel.Group], pick: @escaping (ModeSignature) -> Void) {
         super.init(frame: .zero)
@@ -71,11 +75,6 @@ final class ResolutionGridView: NSView {
             content.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.topInset),
             content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.bottomInset),
         ])
-
-        // A menu item's custom view is drawn at exactly the frame it is given —
-        // AppKit never stretches or shrinks it — so the view has to size itself
-        // before it is handed over.
-        setFrameSize(fittingSize)
     }
 
     @available(*, unavailable)
@@ -104,7 +103,7 @@ final class ResolutionGridView: NSView {
     }
 
     /// The same small-caps treatment the display-name headings use, so the two
-    /// levels of heading in this menu read as one system.
+    /// levels of heading in this panel read as one system.
     ///
     /// Wrapped in a container that reproduces the rows' checkmark gutter, so the
     /// heading starts where the resolutions start instead of hanging out to
@@ -149,10 +148,10 @@ final class ResolutionGridView: NSView {
 
 /// One resolution.
 ///
-/// Everything a real `NSMenuItem` would provide for free — the checkmark
-/// column, the hover highlight, dismissing the menu on click — is rebuilt here,
-/// because a custom view gets none of it.
-private final class RowButton: NSView {
+/// The checkmark column and the hover highlight are both drawn here. A real
+/// menu item would have supplied them; a view laid out in columns supplies
+/// nothing, which is the price of the two-column arrangement above.
+final class RowButton: NSView {
     /// Shared with the column headings, which indent by exactly this much to
     /// line their first glyph up with the resolutions below them.
     static let checkColumn: CGFloat = 16
@@ -241,14 +240,15 @@ private final class RowButton: NSView {
     override func mouseEntered(with event: NSEvent) { isHovering = true }
     override func mouseExited(with event: NSEvent) { isHovering = false }
 
-    /// Close the menu first, then act.
-    ///
-    /// The confirmation panel opens from `pick`, and a menu still tracking the
-    /// mouse sits above it — the countdown would be hidden behind the thing that
-    /// started it.
+    /// - Note: closing the panel is `pick`'s job, and it does it before applying
+    ///   anything. The confirmation countdown opens from there, and this panel
+    ///   floats at `.popUpMenu` level — left open, it would sit on top of the
+    ///   countdown it just started.
     override func mouseUp(with event: NSEvent) {
         isHovering = false
-        enclosingMenuItem?.menu?.cancelTracking()
+        // A press that wandered off the row before releasing is a cancelled
+        // click, the same as anywhere else in the system.
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
         pick(signature)
     }
 }

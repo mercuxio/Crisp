@@ -19,11 +19,9 @@ final class SettingsMenu: NSObject {
     /// Built fresh on every click, because `LaunchAtLogin` is read from the
     /// system rather than remembered and its answer can change between opens.
     ///
-    /// - Parameter topLeft: where the dropdown's top-left corner goes, in
-    ///   screen coordinates. The caller measures the gear before closing the
-    ///   menu around it; by the time this runs there is no view left to
-    ///   anchor to.
-    func show(at topLeft: NSPoint) {
+    /// - Parameter gear: the button this drops out of. It stays on screen, and
+    ///   so does the panel behind it — see `StatusMenuController.openSettings`.
+    func show(from gear: NSView) {
         let menu = NSMenu()
 
         let launch = NSMenuItem(
@@ -32,11 +30,11 @@ final class SettingsMenu: NSObject {
         launch.state = LaunchAtLogin.isEnabled ? .on : .off
         // Approval is the system's to give; clicking again cannot grant it.
         launch.isEnabled = LaunchAtLogin.status != .requiresApproval
+        // The explanation lives in a tooltip rather than a line of its own: a
+        // disabled toggle with no reason is a dead end, but a permanent caption
+        // under a two-item menu is clutter for the case that never needs it.
+        launch.toolTip = LaunchAtLogin.note
         menu.addItem(launch)
-
-        if let note = LaunchAtLogin.note {
-            menu.addItem(Self.note(note))
-        }
 
         menu.addItem(.separator())
 
@@ -44,23 +42,22 @@ final class SettingsMenu: NSObject {
             title: "Restore Defaults", action: #selector(restorePressed), keyEquivalent: "")
         restoreItem.target = self
         menu.addItem(restoreItem)
-        menu.addItem(
-            Self.note("Returns every display to the resolution macOS chose for it."))
 
         menu.addItem(.separator())
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
         menu.addItem(Self.note("Crisp \(version as? String ?? "—")"))
 
-        // A nil view means `topLeft` is read in screen coordinates, which is the
-        // whole reason the caller measured it: `popUp` refuses outright — it
-        // returns false and nothing appears — while another menu is still
-        // tracking, so the gear's menu has to close before this one can open,
-        // and by then the gear itself is gone.
-        menu.popUp(positioning: nil, at: topLeft, in: nil)
+        // The point is in the gear's own coordinates, and a view's origin is its
+        // bottom-left, so a small negative y puts the menu's top-left just under
+        // the glyph.
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -Self.gap), in: gear)
     }
 
-    /// A line of explanation, not a command.
+    /// Breathing room between the gear and the menu that drops out of it.
+    private static let gap: CGFloat = 4
+
+    /// The version line at the bottom: information, not a command.
     ///
     /// `isEnabled = false` alone is not enough: AppKit re-enables items that have
     /// no action, so the nil action is what actually keeps this unclickable.
