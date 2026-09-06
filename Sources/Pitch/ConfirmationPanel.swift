@@ -38,7 +38,7 @@ final class ConfirmationPanel {
             styleMask: [.titled],
             backing: .buffered,
             defer: false)
-        panel.title = "Crisp"
+        panel.title = "Pitch"
         panel.level = .floating
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
@@ -160,7 +160,7 @@ final class ConfirmationPanel {
     func showFailure(_ text: String) {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "Crisp could not restore the previous mode"
+        alert.messageText = "Pitch could not restore the previous mode"
         alert.informativeText = text
         alert.addButton(withTitle: "OK")
         NSApp.activate(ignoringOtherApps: true)

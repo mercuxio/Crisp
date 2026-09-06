@@ -1,10 +1,10 @@
-# Crisp
+# Pitch
 
 A macOS menu bar display-resolution switcher (a QuickRes replacement). Bundle id
-`com.houlanyit.Crisp`. Target macOS 14+, arm64 only. Multi-display is a hard requirement,
+`com.houlanyit.Pitch`. Target macOS 14+, arm64 only. Multi-display is a hard requirement,
 not a later addition.
 
-Spec: `docs/specs/2026-09-05-crisp-design.md` — it is the binding authority.
+Spec: `docs/specs/2026-09-05-pitch-design.md` — it is the binding authority.
 
 ## Building and testing
 

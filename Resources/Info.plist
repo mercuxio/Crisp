@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Crisp</string>
+    <string>Pitch</string>
     <key>CFBundleDisplayName</key>
-    <string>Crisp</string>
+    <string>Pitch</string>
     <key>CFBundleExecutable</key>
-    <string>Crisp</string>
+    <string>Pitch</string>
     <!-- An LSUIElement app has no dock tile, but Finder, Login Items and the
          installer all still ask for this. -->
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.houlanyit.Crisp</string>
+    <string>com.houlanyit.Pitch</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

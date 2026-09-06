@@ -1,8 +1,8 @@
 import ServiceManagement
 
-/// Crisp's login-item registration, read from the system on every access.
+/// Pitch's login-item registration, read from the system on every access.
 ///
-/// Nothing is cached. The user can add or remove Crisp under System Settings ›
+/// Nothing is cached. The user can add or remove Pitch under System Settings ›
 /// General › Login Items without the app ever hearing about it, so a stored
 /// value would eventually put a checkmark next to a setting that is off.
 @MainActor
@@ -21,7 +21,7 @@ enum LaunchAtLogin {
     static var note: String? {
         switch status {
         case .requiresApproval:
-            return "Approve Crisp under System Settings › General › Login Items."
+            return "Approve Pitch under System Settings › General › Login Items."
         case .notFound:
             // Registration is keyed to the code signature, so an ad-hoc signed
             // build usually cannot be matched to a login item. A Developer ID

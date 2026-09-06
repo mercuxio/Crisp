@@ -1,5 +1,5 @@
 #!/bin/bash
-# Assembles Crisp.app from the SwiftPM release build.
+# Assembles Pitch.app from the SwiftPM release build.
 #
 # SwiftPM produces a bare Mach-O executable and has no concept of an
 # application bundle, so the bundle is built by hand here. Everything below is
@@ -12,12 +12,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP="$ROOT/build/Crisp.app"
+APP="$ROOT/build/Pitch.app"
 ICONSET="$ROOT/build/AppIcon.iconset"
 ICON="$ROOT/Resources/AppIcon.icns"
 
 cd "$ROOT"
-swift build --build-system native -c release --product Crisp
+swift build --build-system native -c release --product Pitch
 
 # Regenerated every time rather than trusted from the repo, so the icon cannot
 # drift from the generator that defines it. The .icns is committed all the same,
@@ -28,7 +28,7 @@ iconutil -c icns "$ICONSET" -o "$ICON"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$ROOT/.build/release/Crisp" "$APP/Contents/MacOS/Crisp"
+cp "$ROOT/.build/release/Pitch" "$APP/Contents/MacOS/Pitch"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"

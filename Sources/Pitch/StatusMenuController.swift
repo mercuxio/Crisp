@@ -42,7 +42,7 @@ final class StatusMenuController: NSObject {
 
     /// System Settings' Displays pane, where the Arrange button lives.
     ///
-    /// Crisp does not draw its own arrangement grid. Dragging displays around
+    /// Pitch does not draw its own arrangement grid. Dragging displays around
     /// is not a resolution switcher's job, the system's version already handles
     /// mirroring and the menu bar's home along with placement, and a second
     /// version of it would be one more thing to disagree with the first.
@@ -50,7 +50,7 @@ final class StatusMenuController: NSObject {
     /// This opens the pane, not the sheet: the arrangement sheet has no URL of
     /// its own — it is a button inside the pane — and the only ways to reach it
     /// directly would be to script the click, which needs an Accessibility grant
-    /// Crisp has no other reason to ask for.
+    /// Pitch has no other reason to ask for.
     private static let arrangementURL = URL(
         string: "x-apple.systempreferences:com.apple.Displays-Settings.extension")!
 
@@ -86,7 +86,7 @@ final class StatusMenuController: NSObject {
         super.init()
 
         statusItem.button?.image = NSImage(
-            systemSymbolName: "display", accessibilityDescription: "Crisp")
+            systemSymbolName: "display", accessibilityDescription: "Pitch")
         statusItem.button?.image?.isTemplate = true
         // No `statusItem.menu`: assigning one hands the click to AppKit, which
         // opens a menu — the one thing this app can no longer use.
@@ -283,7 +283,7 @@ final class StatusMenuController: NSObject {
         guard pending == nil else {
             presentAlert(
                 "Finish the current change first",
-                "Crisp is still waiting for you to keep or revert the last resolution.")
+                "Pitch is still waiting for you to keep or revert the last resolution.")
             return
         }
 

@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "Crisp",
+    name: "Pitch",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "DisplayCore", targets: ["DisplayCore"]),
         .executable(name: "displayctl", targets: ["displayctl"]),
-        .executable(name: "Crisp", targets: ["Crisp"]),
+        .executable(name: "Pitch", targets: ["Pitch"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-testing.git", from: "0.10.0"),
@@ -15,7 +15,7 @@ let package = Package(
     targets: [
         .target(name: "DisplayCore"),
         .executableTarget(name: "displayctl", dependencies: ["DisplayCore"]),
-        .executableTarget(name: "Crisp", dependencies: ["DisplayCore"]),
+        .executableTarget(name: "Pitch", dependencies: ["DisplayCore"]),
         .testTarget(
             name: "DisplayCoreTests",
             dependencies: [
@@ -24,9 +24,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "CrispTests",
+            name: "PitchTests",
             dependencies: [
-                "Crisp",
+                "Pitch",
                 "DisplayCore",
                 .product(name: "Testing", package: "swift-testing"),
             ]

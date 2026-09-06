@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Crisp are recorded here. The format follows
+All notable changes to Pitch are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -10,11 +10,15 @@ First public release.
 
 ### Changed
 
-- Version 1.0.0, and the bundle identifier is now `com.houlanyit.Crisp`. The
-  identifier changed before anything shipped, so nothing in the field carries
-  the old one — but a copy of Crisp registered as a login item under the
-  previous identifier will not be recognised by this build and should be
-  re-enabled from Settings.
+- **The app is now called Pitch.** It was Crisp during development, until
+  [didriksg/Crisp](https://github.com/didriksg/Crisp) turned up — an
+  established macOS menu bar app for HiDPI scaling, in the same niche and with
+  a few thousand stars. Two apps that do the same thing under the same name
+  help nobody. *Pitch* is pixel pitch: the thing this app changes.
+- The bundle identifier is now `com.houlanyit.Pitch`, and the version is 1.0.0.
+  Both changed before anything shipped, so nothing in the field carries the old
+  values — but a copy registered as a login item under a previous identifier
+  will not be recognised by this build and should be re-enabled from Settings.
 
 ### Fixed
 
@@ -35,7 +39,7 @@ First public release.
   the current compiler. All of them have been rewritten, and the defect is
   pinned by a test. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- The Crisp version line at the foot of the settings dropdown drew at a fixed
+- The Pitch version line at the foot of the settings dropdown drew at a fixed
   11pt while every other item followed the user's menu font, so it read as a
   different size. It now uses the menu font and differs only in colour.
 

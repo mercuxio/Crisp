@@ -1,4 +1,4 @@
-# Crisp — Design Specification
+# Pitch — Design Specification
 
 **Date:** 2026-09-05
 **Status:** Draft for review
@@ -8,7 +8,7 @@
 
 ## 1. Summary
 
-Crisp is a macOS menu bar utility for switching display resolutions, including the
+Pitch is a macOS menu bar utility for switching display resolutions, including the
 HiDPI and scaled modes that System Settings hides. It replaces the several-click
 trip through System Settings › Displays with a one-click menu and a global hotkey
 that toggles between two saved modes.
@@ -55,7 +55,7 @@ materially — see §4.
 | Distribution | `.dmg` + Sparkle appcast | No App Store review, no fast hotfix channel |
 | Language | Swift 6, strict concurrency | New project; no legacy to carry |
 
-**Bundle identifier: `com.houlanyit.Crisp`.** Permanent once shipped —
+**Bundle identifier: `com.houlanyit.Pitch`.** Permanent once shipped —
 `SMAppService` login-item registration, the preferences path, and the Sparkle update
 feed all key off it, so changing it after the first release orphans every existing
 user's presets, login item, and update channel.
@@ -168,7 +168,7 @@ DisplayCore (library)                pure logic, headlessly testable
 displayctl (executable)              CLI harness AND blind-recovery path
                                      list | set | watch | doctor
 
-Crisp (app target, SwiftUI)          MenuBarExtra, Settings, presets,
+Pitch (app target, SwiftUI)          MenuBarExtra, Settings, presets,
                                      hotkeys, Sparkle, login item
 ```
 
@@ -332,7 +332,7 @@ Every mode change follows:
 3. On confirm → re-apply with `.permanently`, persist the signature
 4. On timeout or cancel → restore the previous mode with `.forSession`
 
-The countdown panel is skipped only when the target mode is one Crisp itself
+The countdown panel is skipped only when the target mode is one Pitch itself
 applied and confirmed within the current session — hotkey toggling between two
 already-confirmed modes should not nag.
 
@@ -376,7 +376,7 @@ OS-computed UUID *and* the same `vendor:model:serial`. `registryLocation` is the
 only genuinely independent discriminator, which is why it is a tier rather than
 a nicety.
 
-**Ambiguity rule:** when two live displays tie on identity at every tier, Crisp
+**Ambiguity rule:** when two live displays tie on identity at every tier, Pitch
 **declines to auto-restore** and logs it. It never guesses.
 
 **Self-healing** rewrites the stored `uuid` only when all hold:
@@ -408,7 +408,7 @@ struct StoredDisplay: Codable {
 }
 ```
 
-Stored at `~/Library/Application Support/Crisp/presets.json`, written atomically
+Stored at `~/Library/Application Support/Pitch/presets.json`, written atomically
 via temp file + `rename`. A file rather than `UserDefaults` because "send me your
 presets.json" is a viable support move once the app is shared.
 
@@ -469,7 +469,7 @@ before giving up. Without this, auto-restore silently no-ops on dock connect.
 
 ### 11.4 Reapply cap
 
-Hard limit of **3 reapplies per display per 60 seconds**. On exceeding it, Crisp
+Hard limit of **3 reapplies per display per 60 seconds**. On exceeding it, Pitch
 stops, disables auto-restore for that display, and posts a notification. This
 bounds the worst case — a flapping display or an unforeseen loop — to a brief
 flicker rather than an unusable machine.
@@ -499,7 +499,7 @@ a transcript that can be captured in one sitting and analysed afterwards.
 `MenuBarExtra` with a template icon. Content rebuilt on open (0.24 ms — cheap):
 
 ```
-◇ Crisp
+◇ Pitch
   ── LG Ultra HD ───────────────    ← header suppressed when only one display
   ✓ 2560 × 1440   (HiDPI)
     2880 × 1620   (HiDPI)
@@ -514,7 +514,7 @@ a transcript that can be captured in one sitting and analysed afterwards.
   ──────────────────────────────
     Toggle: 1440p ⇄ 1800p    ⌘⌥T
     Settings…                  ⌘,
-    Quit Crisp                 ⌘Q
+    Quit Pitch                 ⌘Q
 ```
 
 Top level shows favourites only. Point size is the primary label because that is
@@ -534,7 +534,7 @@ which is a UI nicety and explicitly **not** how §9 matches displays for presets
 
 **Which display does the hotkey act on?** The one containing the mouse cursor when
 the shortcut fires, falling back to the main display. Not the focused window's
-display: Crisp is a menu bar app that usually has no window, and "the screen my
+display: Pitch is a menu bar app that usually has no window, and "the screen my
 pointer is on" is the only target a user can predict without looking anywhere. Each
 display carries its own toggle pair (§10), so the same shortcut does the right
 thing on each screen.

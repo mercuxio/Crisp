@@ -1,5 +1,5 @@
 import Testing
-@testable import Crisp
+@testable import Pitch
 @testable import DisplayCore
 
 /// `MenuModel` decides which modes reach the menu, which row is checked, and how

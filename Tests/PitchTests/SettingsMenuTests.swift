@@ -1,7 +1,7 @@
 import AppKit
 import Testing
 
-@testable import Crisp
+@testable import Pitch
 
 /// The gear dropdown's one rule that is not "always show this".
 ///

@@ -35,7 +35,7 @@ enum ErrorText {
     /// instruction, not a diagnosis.
     static func revertFailure(_ error: Error) -> String {
         describe(error)
-            + "\n\nThe display is still on the new mode. Use Crisp's Restore Defaults "
+            + "\n\nThe display is still on the new mode. Use Pitch's Restore Defaults "
             + "item, or run 'displayctl restore' in Terminal — it can be typed without "
             + "seeing the screen."
     }

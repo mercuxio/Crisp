@@ -1,4 +1,4 @@
-# Crisp — DisplayCore & displayctl Implementation Plan
+# Pitch — DisplayCore & displayctl Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 6.4, SwiftPM, swift-testing (as a package dependency), CoreGraphics, ColorSync. No Xcode, no third-party runtime dependencies.
 
-**Spec:** `docs/specs/2026-09-05-crisp-design.md`
+**Spec:** `docs/specs/2026-09-05-pitch-design.md`
 
 ## Scope
 
@@ -22,7 +22,7 @@ Every task's requirements implicitly include this section.
 
 - **Platform floor:** macOS 14.0. Set `platforms: [.macOS(.v14)]` in `Package.swift`.
 - **Architecture:** arm64 only. Do not add x86_64 handling anywhere.
-- **Bundle identifier (fixed, permanent):** `com.houlanyit.Crisp`. Not used in this plan, but do not invent a different one anywhere.
+- **Bundle identifier (fixed, permanent):** `com.houlanyit.Pitch`. Not used in this plan, but do not invent a different one anywhere.
 - **Toolchain:** Command Line Tools only — Xcode is **not** installed. `xcodebuild` and `actool` are unavailable. Do not write any step that calls them.
 - **Every `swift build` / `swift test` / `swift run` invocation MUST pass `--build-system native`.** The default (XCBuild) build system fails under Command Line Tools with `SessionFailedError … "Unknown error parsing property list"`. It will print a deprecation warning about `native`; ignore it. This is not optional and applies to every command in every task.
 - **Test framework:** swift-testing via the SPM dependency `https://github.com/swiftlang/swift-testing.git`. Neither `Testing` nor `XCTest` exists in the Command Line Tools SDK, so the dependency is mandatory. Use `import Testing`, `@Test`, `#expect`, `#require`.
@@ -93,7 +93,7 @@ Spec §6 sketches `DisplayMode` with flat stored properties and `var id: ModeSig
 import PackageDescription
 
 let package = Package(
-    name: "Crisp",
+    name: "Pitch",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "DisplayCore", targets: ["DisplayCore"]),
@@ -204,7 +204,7 @@ import Testing
 - [ ] **Step 3: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'ModeSignature' in scope`. The first run also fetches and compiles swift-testing from source, which takes about a minute.
@@ -362,7 +362,7 @@ print("displayctl: not implemented yet")
 - [ ] **Step 8: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 5 tests.
@@ -370,14 +370,14 @@ Expected: PASS, 5 tests.
 - [ ] **Step 9: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Package.swift Package.resolved Sources Tests
 git commit -m "feat: add DisplayCore value types and package scaffold"
 ```
 
 `Package.resolved` is **committed, not ignored.** The usual advice to ignore it
 applies to libraries, whose dependency versions are the consumer's business.
-Crisp is an application: the resolved file is what makes a checkout build the
+Pitch is an application: the resolved file is what makes a checkout build the
 same swift-testing revision tomorrow as today, and `displayctl` is a recovery
 tool whose build should never be at the mercy of an upstream tag moving.
 
@@ -585,7 +585,7 @@ private func mode(
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'ModeMatcher' in scope`.
@@ -710,7 +710,7 @@ public enum ModeMatcher {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 19 tests.
@@ -718,7 +718,7 @@ Expected: PASS, 19 tests.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Sources/DisplayCore/ModeMatcher.swift Tests/DisplayCoreTests/ModeMatcherTests.swift
 git commit -m "feat: add strict signature matching and ranked query resolution"
 ```
@@ -940,7 +940,7 @@ import Testing
 - [ ] **Step 3: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'ModeConversion' in scope`, `cannot find type 'DisplayEnumerating' in scope`.
@@ -1141,7 +1141,7 @@ public struct CoreGraphicsEnumerator: DisplayEnumerating {
 - [ ] **Step 7: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 29 tests. If the guard test fails, **stop and report it** — it means the SDK changed the constant and spec §4.1 needs revisiting before any further work.
@@ -1149,7 +1149,7 @@ Expected: PASS, 29 tests. If the guard test fails, **stop and report it** — it
 - [ ] **Step 8: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Sources/DisplayCore Tests/DisplayCoreTests
 git commit -m "feat: add the display read seam and CoreGraphics enumerator"
 ```
@@ -1383,7 +1383,7 @@ private let native = DisplayMode(
 - [ ] **Step 4: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'ArgumentParser' in scope`.
@@ -1806,7 +1806,7 @@ do {
 - [ ] **Step 8: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 47 tests.
@@ -1814,7 +1814,7 @@ Expected: PASS, 47 tests.
 - [ ] **Step 9: Verify against the real display**
 
 ```bash
-cd ~/Projects/Crisp && swift run --build-system native displayctl list
+cd ~/Projects/Pitch && swift run --build-system native displayctl list
 ```
 
 Expected: at least one display, with HiDPI modes present. On the reference LG 5K this shows `2560 x 1440  (5120 x 2880 HiDPI)` marked with `*`.
@@ -1824,7 +1824,7 @@ Expected: at least one display, with HiDPI modes present. On the reference LG 5K
 - [ ] **Step 10: Record the regression fixture**
 
 ```bash
-cd ~/Projects/Crisp && mkdir -p Tests/Fixtures \
+cd ~/Projects/Pitch && mkdir -p Tests/Fixtures \
   && swift run --build-system native displayctl list --all --json > Tests/Fixtures/reference-display-modes.json \
   && head -30 Tests/Fixtures/reference-display-modes.json
 ```
@@ -1834,7 +1834,7 @@ Spec §14 asks for this: a recorded mode table from a known-good OS, so a future
 - [ ] **Step 11: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Package.swift Sources/displayctl Tests/displayctlTests Tests/Fixtures
 git commit -m "feat: add displayctl list with text and JSON output"
 ```
@@ -1971,7 +1971,7 @@ import Testing
 - [ ] **Step 3: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'Watchdog' in scope`.
@@ -2145,7 +2145,7 @@ public final class CoreGraphicsConfigurator: DisplayConfiguring {
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 54 tests. No test in this task changes the display — `CoreGraphicsConfigurator.apply` is never called from a test, only its pure helpers.
@@ -2153,7 +2153,7 @@ Expected: PASS, 54 tests. No test in this task changes the display — `CoreGrap
 - [ ] **Step 7: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Sources/DisplayCore Tests/DisplayCoreTests
 git commit -m "feat: add the display write seam with transaction and watchdog"
 ```
@@ -2342,7 +2342,7 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
 - [ ] **Step 3: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'RevertCoordinator' in scope`.
@@ -2460,7 +2460,7 @@ public final class RevertCoordinator {
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 64 tests.
@@ -2468,7 +2468,7 @@ Expected: PASS, 64 tests.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Sources/DisplayCore Tests/DisplayCoreTests
 git commit -m "feat: add the confirm-or-revert coordinator"
 ```
@@ -2832,7 +2832,7 @@ private func coordinator(
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: FAIL — `cannot find 'runSet' in scope`.
@@ -3127,7 +3127,7 @@ Exit code 2 for a revert is deliberate: a script that sets a mode needs to be ab
 - [ ] **Step 8: Run the tests to verify they pass**
 
 ```bash
-cd ~/Projects/Crisp && swift test --build-system native
+cd ~/Projects/Pitch && swift test --build-system native
 ```
 
 Expected: PASS, 80 tests.
@@ -3139,13 +3139,13 @@ Everything above is fake-driven. This step is the only one that touches real har
 If a step leaves a screen unreadable, the recovery is: wait 15 seconds and it reverts by itself. If it does not, type blind:
 
 ```bash
-~/Projects/Crisp/.build/arm64-apple-macosx/debug/displayctl restore
+~/Projects/Pitch/.build/arm64-apple-macosx/debug/displayctl restore
 ```
 
 Build the binary once so recovery does not depend on a compile:
 
 ```bash
-cd ~/Projects/Crisp && swift build --build-system native
+cd ~/Projects/Pitch && swift build --build-system native
 ```
 
 Then work through these and record what happened:
@@ -3163,7 +3163,7 @@ Record the results in the commit message. If any of 2, 3, 5, or 7 fails, stop �
 - [ ] **Step 10: Commit**
 
 ```bash
-cd ~/Projects/Crisp
+cd ~/Projects/Pitch
 git add Sources/displayctl Tests/displayctlTests
 git commit -m "feat: add displayctl set, restore and doctor
 

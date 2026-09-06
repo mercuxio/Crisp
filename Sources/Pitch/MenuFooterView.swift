@@ -48,7 +48,7 @@ final class MenuFooterView: NSView {
 
         let quitButton = Self.button(
             image: LucideIcon.logOut.image(size: Metrics.glyph),
-            tooltip: "Quit Crisp", target: target, action: quit)
+            tooltip: "Quit Pitch", target: target, action: quit)
 
         for view in [leading, quitButton] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false

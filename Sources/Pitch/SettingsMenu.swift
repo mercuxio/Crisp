@@ -2,7 +2,7 @@ import AppKit
 
 /// The gear's dropdown.
 ///
-/// Crisp has two settings, which is not a window's worth. A dropdown keeps them
+/// Pitch has two settings, which is not a window's worth. A dropdown keeps them
 /// where the click already is — the same shape InOut's gear uses — and costs the
 /// user no context switch to a separate dialog and back.
 @MainActor
@@ -61,7 +61,7 @@ final class SettingsMenu: NSObject {
                 keyEquivalent: "")
             arrangeItem.target = self
             menu.addItem(arrangeItem)
-            // The rule separates the one item that leaves Crisp from the two
+            // The rule separates the one item that leaves Pitch from the two
             // that change it.
             menu.addItem(.separator())
         }
@@ -86,7 +86,7 @@ final class SettingsMenu: NSObject {
         menu.addItem(.separator())
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
-        menu.addItem(Self.note("Crisp \(version as? String ?? "—")"))
+        menu.addItem(Self.note("Pitch \(version as? String ?? "—")"))
 
         return menu
     }
@@ -130,11 +130,11 @@ final class SettingsMenu: NSObject {
         } catch {
             // The next open re-reads the system, so the toggle corrects itself.
             // Saying nothing would be the worst outcome: the user would believe
-            // Crisp will start at login when it will not.
+            // Pitch will start at login when it will not.
             let alert = NSAlert()
             alert.messageText = wanted
-                ? "Crisp could not be set to start at login"
-                : "Crisp could not be removed from login items"
+                ? "Pitch could not be set to start at login"
+                : "Pitch could not be removed from login items"
             alert.informativeText = error.localizedDescription
             alert.addButton(withTitle: "OK")
             NSApp.activate(ignoringOtherApps: true)

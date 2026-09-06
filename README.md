@@ -1,11 +1,11 @@
-# Crisp
+# Pitch
 
 A macOS menu bar app for switching display resolutions — including the HiDPI
 modes System Settings will not show you.
 
 Every panel reports far more modes than macOS offers in the Displays pane. On a
 4K monitor that typically means around 88 modes, of which roughly half are
-HiDPI, against the handful System Settings lists. Crisp puts all of the usable
+HiDPI, against the handful System Settings lists. Pitch puts all of the usable
 ones one click away, on every attached display, and gives you fifteen seconds
 to change your mind.
 
@@ -15,17 +15,17 @@ Requires **macOS 14 or later** on **Apple silicon**.
 
 ## Install
 
-**Download the release.** Grab `Crisp-1.0.0.zip` from
-[Releases](https://github.com/mercuxio/Crisp/releases), unzip it, and drag
-`Crisp.app` to `/Applications`.
+**Download the release.** Grab `Pitch-1.0.0.zip` from
+[Releases](https://github.com/mercuxio/Pitch/releases), unzip it, and drag
+`Pitch.app` to `/Applications`.
 
 The app is ad-hoc signed, not notarized — I don't pay for an Apple Developer
 account. macOS quarantines anything downloaded from the internet that isn't
-notarized, so the first launch will be refused with "Crisp is damaged and can't
+notarized, so the first launch will be refused with "Pitch is damaged and can't
 be opened" or "cannot be verified". Clear the quarantine flag once:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Crisp.app
+xattr -dr com.apple.quarantine /Applications/Pitch.app
 ```
 
 Then open it normally. If you'd rather not run that on a stranger's binary —
@@ -73,7 +73,7 @@ panel stays put underneath it:
 Applying a resolution your monitor cannot actually display is how you end up
 unable to read the menu that would undo it. So every change is provisional:
 
-1. Crisp applies the mode for the current session only.
+1. Pitch applies the mode for the current session only.
 2. A floating panel appears with a fifteen-second countdown.
 3. **Revert is the default button.** Keep is ⌘K. If you cannot see the panel and
    press Return blindly, you get the safe outcome.
@@ -82,7 +82,7 @@ unable to read the menu that would undo it. So every change is provisional:
 
 The countdown timer runs in the `.common` run loop mode, so it keeps ticking
 while a menu is open or while you are dragging the panel around. If confirming
-fails — most often because the click landed a hair past the deadline — Crisp
+fails — most often because the click landed a hair past the deadline — Pitch
 reverts rather than leaving you on a mode nothing will ever take back.
 
 ## `displayctl`
@@ -108,7 +108,7 @@ displayctl restore
 `set` runs the same confirm-or-revert cycle, prompting on standard input;
 `--yes` skips the countdown and `--timeout N` changes its length. `doctor`
 prints what the enumerator sees, including the HiDPI mode count — useful for
-telling "this display has no HiDPI modes" apart from "Crisp is not asking for
+telling "this display has no HiDPI modes" apart from "Pitch is not asking for
 them".
 
 Run `displayctl --help` for the full option list.
@@ -123,13 +123,13 @@ swift build --build-system native -c release
 ./scripts/package-app.sh
 ```
 
-`package-app.sh` assembles `build/Crisp.app` — SwiftPM produces a bare
+`package-app.sh` assembles `build/Pitch.app` — SwiftPM produces a bare
 executable and has no concept of an app bundle, so the layout, `Info.plist`,
 icon and signature are put together by the script. The signature is ad-hoc,
 which is enough to run the app yourself and not enough to distribute it;
 shipping would need a Developer ID identity and notarization.
 
-Drag `build/Crisp.app` to `/Applications` and launch it. There is no dock icon
+Drag `build/Pitch.app` to `/Applications` and launch it. There is no dock icon
 — it is an `LSUIElement` agent, so the menu bar glyph is the whole interface.
 
 ## Layout
@@ -138,7 +138,7 @@ Drag `build/Crisp.app` to `/Applications` and launch it. There is no dock icon
 | --- | --- |
 | `Sources/DisplayCore` | Enumerating modes, matching them, applying them, and the revert coordinator. Pure library: no AppKit, no `UserDefaults`, and no user-facing strings. |
 | `Sources/displayctl` | The CLI: hand-rolled argument parsing, rendering, and the terminal confirmation prompt. |
-| `Sources/Crisp` | The menu bar app. Everything is `@MainActor`. |
+| `Sources/Pitch` | The menu bar app. Everything is `@MainActor`. |
 | `Tools/GenerateIcon.swift` | Draws the app icon from the same `display` SF Symbol the menu bar uses, so the two cannot drift apart. |
 | `docs/specs/` | The design spec, which is the binding authority for behaviour. |
 
@@ -164,7 +164,7 @@ Version 1.0.0. The suite is green and the app has been used against real
 hardware, but the full multi-display verification matrix in
 `docs/milestone-3-carry-forward.md` has not been worked through end to end.
 
-Releases carry an ad-hoc signed `Crisp.app` in a zip; see
+Releases carry an ad-hoc signed `Pitch.app` in a zip; see
 [Install](#install) for the one command that gets it past Gatekeeper.
 
 ## License

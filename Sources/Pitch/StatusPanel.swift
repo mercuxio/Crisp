@@ -179,7 +179,7 @@ final class StatusPanel: NSPanel {
 
     /// - Note: the mouse monitor is deliberately *global*, which is to say it
     ///   sees only clicks delivered to other applications. A local monitor would
-    ///   also catch clicks inside Crisp's own settings dropdown and close the
+    ///   also catch clicks inside Pitch's own settings dropdown and close the
     ///   panel out from under it — the exact behaviour this class exists to fix.
     ///
     ///   The status item is the one thing the monitor must not act on, because

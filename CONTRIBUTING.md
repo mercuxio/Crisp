@@ -1,4 +1,4 @@
-# Contributing to Crisp
+# Contributing to Pitch
 
 ## Building and testing
 
@@ -89,7 +89,7 @@ non-zero value, nor be rendered as "0 Hz".
 
 `DisplayCore` is a pure library: no SwiftUI, no AppKit, no `UserDefaults`, and
 no user-facing strings. Text the user reads lives in
-`Sources/displayctl/Rendering.swift` and `Sources/Crisp/ErrorText.swift`.
+`Sources/displayctl/Rendering.swift` and `Sources/Pitch/ErrorText.swift`.
 
 Nothing in `DisplayCore` fires a revert on its own — no timer, no queue, no
 `deinit` hook. The entire confirm-or-revert safety property lives in the
@@ -109,7 +109,7 @@ a line is the way it is, usually because the obvious alternative is wrong in a
 way that costs an afternoon to rediscover. Match that. A comment restating what
 the code says is noise; a comment naming the trap is the point.
 
-`docs/specs/2026-09-05-crisp-design.md` is the binding authority for behaviour.
+`docs/specs/2026-09-05-pitch-design.md` is the binding authority for behaviour.
 When code and spec disagree, the spec wins unless you change it deliberately.
 
 ## Pull requests
