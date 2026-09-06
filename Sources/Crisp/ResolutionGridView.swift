@@ -188,8 +188,10 @@ final class RowButton: NSView {
     init(row: MenuModel.Row, pick: @escaping (ModeSignature) -> Void) {
         self.pick = pick
         self.signature = row.signature
-        // The checkmark outranks the dot: where you are matters more than where
-        // you have been, and there is one gutter for both to live in.
+        // A checkmark reads at full strength, a dot a step below it: where you
+        // are should carry more weight than where you have been. The model
+        // guarantees a row is never both, so this picks a colour rather than
+        // settling an argument.
         self.restingTint = row.isCurrent ? .labelColor : .secondaryLabelColor
         super.init(frame: .zero)
 

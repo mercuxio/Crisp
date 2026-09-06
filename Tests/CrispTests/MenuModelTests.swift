@@ -139,13 +139,29 @@ private func mode(
     #expect(flattened.filter(\.isCurrent).count == 1)
 }
 
-@Test func rememberingPutsTheNewestPickFirstAndKeepsOnlyThree() {
+@Test func rememberingPutsTheNewestPickFirstAndTrimsToCapacity() {
     var recents: [ModeSignature] = []
-    for width in [1920, 1680, 1600, 1440] {
+    for width in [1920, 1680, 1600, 1440, 1400] {
         recents = MenuModel.remembering(mode(width, 1080).signature, in: recents)
     }
-    #expect(recents.count == MenuModel.recentLimit)
-    #expect(recents.map(\.pointWidth) == [1440, 1600, 1680])
+    #expect(recents.count == MenuModel.recentCapacity)
+    #expect(recents.map(\.pointWidth) == [1400, 1440, 1600, 1680])
+}
+
+@Test func threeDotsSurviveTheCurrentModeTakingOneOfTheRecentSlots() {
+    // The mode you are sitting on is a recent pick like any other, but it
+    // wears the checkmark instead of a dot. Were it to count against the
+    // limit, the panel would show two dots rather than three — and it would
+    // do so almost always, because the last thing you picked is normally
+    // the thing you are on.
+    let modes = [mode(2560, 1440), mode(1920, 1080), mode(1600, 900), mode(1280, 720)]
+    var recents: [ModeSignature] = []
+    for mode in modes { recents = MenuModel.remembering(mode.signature, in: recents) }
+
+    let rows = MenuModel.rows(for: modes, current: modes[3], recents: recents)
+
+    #expect(rows.filter(\.isRecent).count == MenuModel.recentLimit)
+    #expect(rows.first { $0.isCurrent }?.isRecent == false)
 }
 
 @Test func rememberingARepeatPickMovesItForwardRatherThanDuplicatingIt() {
@@ -165,9 +181,10 @@ private func mode(
         current: current,
         recents: [current.signature, recent.signature])
 
-    // The current row carries the checkmark, so its dot would be a second
-    // marker in a gutter that holds one — `isRecent` stays true and the view
-    // decides. What matters here is that both are reported honestly.
+    // The current row carries the checkmark, so the model does not also call
+    // it recent: one gutter, one marker, and the decision is made here rather
+    // than left to the view.
+    #expect(rows.first { $0.signature == current.signature }?.isRecent == false)
     #expect(rows.first { $0.signature == recent.signature }?.isRecent == true)
     #expect(rows.first { $0.signature == other.signature }?.isRecent == false)
     #expect(rows.first { $0.signature == current.signature }?.isCurrent == true)

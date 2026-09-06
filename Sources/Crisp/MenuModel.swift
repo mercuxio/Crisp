@@ -18,12 +18,12 @@ enum MenuModel {
         let title: String
         let isCurrent: Bool
 
-        /// Among the last few resolutions the user picked on this display.
+        /// Among the last few resolutions the user picked on this display,
+        /// not counting the one they are on.
         ///
-        /// Marked with a dot in the gutter, which is the checkmark's column —
-        /// so a row that is both current and recent shows the checkmark and no
-        /// dot. The two markers answer different questions and the checkmark's
-        /// is the more urgent one.
+        /// Marked with a dot in the gutter, which is the checkmark's column.
+        /// The current row is never also recent — see `rows(for:current:)` —
+        /// so the two markers never contend for the one gutter between them.
         let isRecent: Bool
     }
 
@@ -128,14 +128,22 @@ enum MenuModel {
         // Compared by group rather than by signature: a row stands for its whole
         // refresh-rate group and applies the fastest member, so a recent pick
         // recorded at 60 Hz must still light up the row that now offers 120.
-        let recentKeys = Set(
-            recents.map {
-                GroupKey(
-                    pointWidth: $0.pointWidth,
-                    pointHeight: $0.pointHeight,
-                    pixelWidth: $0.pixelWidth,
-                    pixelHeight: $0.pixelHeight)
-            })
+        //
+        // The current mode drops out before the limit is applied, not after.
+        // It is a recent pick like any other — usually the most recent — but
+        // it wears the checkmark, so counting it would cost one of the three
+        // dots nearly every time the panel opens.
+        var ordered: [GroupKey] = []
+        for signature in recents {
+            let key = GroupKey(
+                pointWidth: signature.pointWidth,
+                pointHeight: signature.pointHeight,
+                pixelWidth: signature.pixelWidth,
+                pixelHeight: signature.pixelHeight)
+            guard key != currentKey, !ordered.contains(key) else { continue }
+            ordered.append(key)
+        }
+        let recentKeys = Set(ordered.prefix(recentLimit))
 
         var fastest: [GroupKey: DisplayMode] = [:]
         for mode in usable {
@@ -169,19 +177,28 @@ enum MenuModel {
             }
     }
 
-    /// How many resolutions the dots remember.
+    /// How many rows the dots mark.
+    ///
+    /// Three is what stops the dots from spreading down the whole column until
+    /// they say nothing at all.
     static let recentLimit = 3
+
+    /// How many picks the list holds.
+    ///
+    /// One more than it marks, because the resolution you are on is normally
+    /// the newest entry and is shown with a checkmark instead of a dot. Without
+    /// the spare, the list would run out of dots to give exactly when the user
+    /// is doing nothing unusual.
+    static let recentCapacity = recentLimit + 1
 
     /// The recency list after the user picks `signature`, newest first.
     ///
     /// Moves a repeat pick back to the front rather than adding it twice, so
-    /// three dots always mean three different resolutions. Trimmed to
-    /// `recentLimit`, which is what stops the dots from spreading down the whole
-    /// column until they say nothing at all.
+    /// the dots always mean that many different resolutions.
     static func remembering(
         _ signature: ModeSignature, in recents: [ModeSignature]
     ) -> [ModeSignature] {
-        ([signature] + recents.filter { $0 != signature }).prefix(recentLimit).map { $0 }
+        ([signature] + recents.filter { $0 != signature }).prefix(recentCapacity).map { $0 }
     }
 
     /// Which display the panel should be showing.
