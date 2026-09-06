@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # No --build-system native here, unlike local builds. That flag exists to
+      # work around a Command Line Tools-only machine; GitHub's macOS runners
+      # have Xcode selected, so the default works and stays valid as SwiftPM
+      # deprecates the flag. See CONTRIBUTING.md.
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      # Assembling the bundle catches Info.plist and icon-generation breakage,
+      # which the suite cannot see. It never applies a display mode.
+      - name: Package the app
+        run: ./scripts/package-app.sh
