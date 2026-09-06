@@ -22,7 +22,7 @@ Every task's requirements implicitly include this section.
 
 - **Platform floor:** macOS 14.0. Set `platforms: [.macOS(.v14)]` in `Package.swift`.
 - **Architecture:** arm64 only. Do not add x86_64 handling anywhere.
-- **Bundle identifier (fixed, permanent):** `dev.houlanyit.Crisp`. Not used in this plan, but do not invent a different one anywhere.
+- **Bundle identifier (fixed, permanent):** `com.houlanyit.Crisp`. Not used in this plan, but do not invent a different one anywhere.
 - **Toolchain:** Command Line Tools only — Xcode is **not** installed. `xcodebuild` and `actool` are unavailable. Do not write any step that calls them.
 - **Every `swift build` / `swift test` / `swift run` invocation MUST pass `--build-system native`.** The default (XCBuild) build system fails under Command Line Tools with `SessionFailedError … "Unknown error parsing property list"`. It will print a deprecation warning about `native`; ignore it. This is not optional and applies to every command in every task.
 - **Test framework:** swift-testing via the SPM dependency `https://github.com/swiftlang/swift-testing.git`. Neither `Testing` nor `XCTest` exists in the Command Line Tools SDK, so the dependency is mandatory. Use `import Testing`, `@Test`, `#expect`, `#require`.

@@ -140,9 +140,13 @@ swift test --build-system native
 
 ## Status
 
-Version 0.1.0. The suite is green and the app has been used against real
+Version 1.0.0. The suite is green and the app has been used against real
 hardware, but the full multi-display verification matrix in
 `docs/milestone-3-carry-forward.md` has not been worked through end to end.
+
+Releases carry an ad-hoc signed `Crisp.app` in a zip. macOS has no notarization
+ticket for it, so the first launch needs a right-click → **Open**, or a trip to
+System Settings → Privacy & Security.
 
 ## License
 

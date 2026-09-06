@@ -50,11 +50,6 @@ final class SettingsMenu: NSObject {
         // every value set below: the Start at Login item would render clickable
         // in the one state where clicking it cannot possibly work.
         menu.autoenablesItems = false
-        // Off, because this menu decides for itself which items are live.
-        // Left on — the default — AppKit recomputes `isEnabled` from each
-        // item's target and selector just before the menu draws, throwing away
-        // every value set below: the Start at Login item would render clickable
-        // in the one state where clicking it cannot possibly work.
 
         // Arranging one display is not a thing you can do, and System Settings
         // agrees: with a single display attached its Displays pane offers no
@@ -109,13 +104,20 @@ final class SettingsMenu: NSObject {
     /// because `menu(displayCount:)` turns `autoenablesItems` off. The nil
     /// action is belt and braces: it would disable the item on its own under
     /// auto-enabling too.
+    ///
+    /// The font is stated rather than left out. An `attributedTitle` replaces
+    /// the item's text wholesale, so AppKit stops supplying the menu font and
+    /// draws exactly what these attributes say — omitting the font would fall
+    /// back to 12pt Helvetica, and naming a size would pin the line while every
+    /// other item in the menu still follows the user's menu-font setting. Only
+    /// the colour is meant to differ.
     private static func note(_ text: String) -> NSMenuItem {
         let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
         item.isEnabled = false
         item.attributedTitle = NSAttributedString(
             string: text,
             attributes: [
-                .font: NSFont.systemFont(ofSize: 11),
+                .font: NSFont.menuFont(ofSize: 0),
                 .foregroundColor: NSColor.secondaryLabelColor,
             ])
         return item

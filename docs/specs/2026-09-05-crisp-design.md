@@ -55,7 +55,7 @@ materially — see §4.
 | Distribution | `.dmg` + Sparkle appcast | No App Store review, no fast hotfix channel |
 | Language | Swift 6, strict concurrency | New project; no legacy to carry |
 
-**Bundle identifier: `dev.houlanyit.Crisp`.** Permanent once shipped —
+**Bundle identifier: `com.houlanyit.Crisp`.** Permanent once shipped —
 `SMAppService` login-item registration, the preferences path, and the Sparkle update
 feed all key off it, so changing it after the first release orphans every existing
 user's presets, login item, and update channel.

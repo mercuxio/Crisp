@@ -4,7 +4,17 @@ All notable changes to Crisp are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] — 2026-09-06
+
+First public release.
+
+### Changed
+
+- Version 1.0.0, and the bundle identifier is now `com.houlanyit.Crisp`. The
+  identifier changed before anything shipped, so nothing in the field carries
+  the old one — but a copy of Crisp registered as a login item under the
+  previous identifier will not be recognised by this build and should be
+  re-enabled from Settings.
 
 ### Fixed
 
@@ -25,13 +35,17 @@ All notable changes to Crisp are recorded here. The format follows
   the current compiler. All of them have been rewritten, and the defect is
   pinned by a test. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+- The Crisp version line at the foot of the settings dropdown drew at a fixed
+  11pt while every other item followed the user's menu font, so it read as a
+  different size. It now uses the menu font and differs only in colour.
+
 ### Added
 
 - `README.md`, `CONTRIBUTING.md`, this changelog, and an MIT `LICENSE`.
 
-## [0.1.0]
+## [0.1.0] — never published
 
-First working version.
+The first working version, developed in this repository but never released.
 
 - Menu bar panel listing every usable mode per display, HiDPI and Normal in
   separate columns, with a checkmark on the current mode and a dot on the last
