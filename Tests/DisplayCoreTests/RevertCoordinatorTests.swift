@@ -66,7 +66,11 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     let change = try coordinator.begin(target: [1: target], previous: [1: previous])
     clock.advance(by: 14.9)
 
-    #expect(try coordinator.expireIfNeeded(change) == false)
+    // Hoisted into a local and asserted as a plain condition. `#expect(x ==
+    // false)` compiles and always passes when `x` is a `Bool` — see
+    // `boolComparisonsAreInvisibleToTheExpectMacro`.
+    let expired = try coordinator.expireIfNeeded(change)
+    #expect(!expired)
     #expect(configurator.applications.count == 1)
 }
 
@@ -78,7 +82,8 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     let change = try coordinator.begin(target: [1: target], previous: [1: previous])
     clock.advance(by: 15.0)
 
-    #expect(try coordinator.expireIfNeeded(change) == true)
+    let expired = try coordinator.expireIfNeeded(change)
+    #expect(expired)
     #expect(configurator.applications.last?.plan == [1: previous])
     #expect(configurator.applications.last?.scope == .session)
 }
@@ -169,7 +174,8 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     #expect(configurator.applications.count == 1)
 
     // A second attempt, with the fault cleared, must actually revert.
-    #expect(try coordinator.expireIfNeeded(change) == true)
+    let retried = try coordinator.expireIfNeeded(change)
+    #expect(retried)
     #expect(configurator.applications.count == 2)
     #expect(configurator.applications.last?.plan == [1: previous])
 }
@@ -199,8 +205,10 @@ private let previous = makeMode(point: (1920, 1080), pixel: (3840, 2160), id: 12
     let change = try coordinator.begin(target: [1: target], previous: [1: previous])
     clock.advance(by: 15)
 
-    #expect(try coordinator.expireIfNeeded(change) == true)
-    #expect(try coordinator.expireIfNeeded(change) == false)
+    let firstPoll = try coordinator.expireIfNeeded(change)
+    let secondPoll = try coordinator.expireIfNeeded(change)
+    #expect(firstPoll)
+    #expect(!secondPoll)
 
     // One revert transaction, not two — a second poll tick must not be a
     // second CoreGraphics transaction (and a second visible flicker).

@@ -161,7 +161,11 @@ private func mode(
     let rows = MenuModel.rows(for: modes, current: modes[3], recents: recents)
 
     #expect(rows.filter(\.isRecent).count == MenuModel.recentLimit)
-    #expect(rows.first { $0.isCurrent }?.isRecent == false)
+    // Hoisted into a local rather than compared or coalesced inside
+    // `#expect`: see `boolComparisonsAreInvisibleToTheExpectMacro` in
+    // DisplayCoreTests for why neither form checks anything here.
+    let currentIsRecent = rows.first { $0.isCurrent }?.isRecent ?? true
+    #expect(!currentIsRecent)
 }
 
 @Test func rememberingARepeatPickMovesItForwardRatherThanDuplicatingIt() {
@@ -184,10 +188,14 @@ private func mode(
     // The current row carries the checkmark, so the model does not also call
     // it recent: one gutter, one marker, and the decision is made here rather
     // than left to the view.
-    #expect(rows.first { $0.signature == current.signature }?.isRecent == false)
-    #expect(rows.first { $0.signature == recent.signature }?.isRecent == true)
-    #expect(rows.first { $0.signature == other.signature }?.isRecent == false)
-    #expect(rows.first { $0.signature == current.signature }?.isCurrent == true)
+    let currentIsRecent = rows.first { $0.signature == current.signature }?.isRecent ?? true
+    let recentIsRecent = rows.first { $0.signature == recent.signature }?.isRecent ?? false
+    let otherIsRecent = rows.first { $0.signature == other.signature }?.isRecent ?? true
+    let currentIsChecked = rows.first { $0.signature == current.signature }?.isCurrent ?? false
+    #expect(!currentIsRecent)
+    #expect(recentIsRecent)
+    #expect(!otherIsRecent)
+    #expect(currentIsChecked)
 }
 
 @Test func aRecentPickMarksItsRowEvenAfterTheGroupSwitchesRefreshRate() {
@@ -199,7 +207,8 @@ private func mode(
     let rows = MenuModel.rows(
         for: [sixty, oneTwenty], current: mode(1280, 720), recents: [sixty.signature])
 
-    #expect(rows.first { $0.signature == oneTwenty.signature }?.isRecent == true)
+    let fastRowIsRecent = rows.first { $0.signature == oneTwenty.signature }?.isRecent ?? false
+    #expect(fastRowIsRecent)
 }
 
 @Test func selectionKeepsTheRememberedDisplayWhileItIsStillAttached() {

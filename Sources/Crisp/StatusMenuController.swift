@@ -374,11 +374,20 @@ final class StatusMenuController: NSObject {
 
     // MARK: - The countdown
 
+    /// - Note: `.common`, not the `.default` mode `Timer.scheduledTimer`
+    ///   installs into. A default-mode timer stops firing for as long as the
+    ///   run loop is in `.eventTracking` — while a menu is held open, or while
+    ///   the confirmation panel is being dragged, which it can be
+    ///   (`isMovableByWindowBackground`). That would freeze the visible
+    ///   countdown *and* the revert it is counting down to, which is the one
+    ///   thing this class exists to guarantee.
     private func startTicking() {
         ticker?.invalidate()
-        ticker = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
-            MainActor.assumeIsolated { self.tick() }
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
     }
 
     private func stopTicking() {
@@ -415,8 +424,23 @@ final class StatusMenuController: NSObject {
             try coordinator.confirm(change, scope: .permanent)
             finish()
         } catch {
-            finish()
-            presentAlert("The resolution was not kept", ErrorText.describe(error))
+            // The user asked to keep it and the system refused — most often
+            // because the click landed a hair past the deadline. `finish()`
+            // stops the countdown, so after this nothing will ever revert on
+            // its own: the safe resting state is the mode they came from, not
+            // the one they just failed to keep. `displayctl set` does exactly
+            // this in the same situation, and `revert` is still available
+            // because `confirm` only marks a change resolved once it succeeds.
+            let confirmFailure = error
+            do {
+                try coordinator.revert(change)
+                finish()
+                presentAlert(
+                    "The resolution was not kept", ErrorText.describe(confirmFailure))
+            } catch {
+                finish()
+                confirmation.showFailure(ErrorText.revertFailure(error))
+            }
         }
     }
 

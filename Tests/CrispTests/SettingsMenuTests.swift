@@ -59,4 +59,32 @@ struct SettingsMenuTests {
 
         #expect(fired == 1)
     }
+
+    @Test func theMenuDecidesItsOwnEnabledStateRatherThanLettingAppKitGuess() {
+        // `NSMenu.autoenablesItems` defaults to true, and under it AppKit
+        // recomputes every item's enabled state from its target and selector
+        // just before the menu draws — discarding whatever the builder set.
+        // Start at Login turns itself off when macOS is waiting for the user to
+        // approve the login item, and that is precisely a case where the item
+        // has a target that does respond to the selector, so auto-enabling
+        // would put it back. The flag is the whole reason that works.
+        //
+        // Written as `!flag` rather than `flag == false`: see
+        // `boolComparisonsAreInvisibleToTheExpectMacro` in DisplayCoreTests for
+        // why the comparison form would pass no matter what the flag held.
+        let menu = settings().menu(displayCount: 2)
+        #expect(!menu.autoenablesItems)
+
+        // And end to end. `update()` is where auto-enabling would run, and in a
+        // process with no responder chain it finds nothing to validate against,
+        // so it disables every item it is allowed to touch — including this
+        // one, which has both a target and an action and is never disabled by
+        // the builder. Surviving `update()` enabled is only possible with the
+        // flag off.
+        menu.update()
+        let restore = menu.items.first { $0.title == "Restore Defaults" }
+        #expect(restore?.action != nil)
+        let restoreIsEnabled = restore?.isEnabled ?? false
+        #expect(restoreIsEnabled)
+    }
 }

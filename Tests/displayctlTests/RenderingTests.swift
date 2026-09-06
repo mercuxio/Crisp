@@ -26,10 +26,15 @@ private let native = DisplayMode(
 
     let currentLine = try? #require(
         text.split(separator: "\n").first { $0.contains("2560 x 1440") })
-    #expect(currentLine?.contains("*") == true)
+    // Hoisted into a local rather than compared or coalesced inside
+    // `#expect`: see `boolComparisonsAreInvisibleToTheExpectMacro` in
+    // DisplayCoreTests for why neither form checks anything here.
+    let currentIsStarred = currentLine?.contains("*") ?? false
+    #expect(currentIsStarred)
 
     let otherLine = text.split(separator: "\n").first { $0.contains("1920 x 1080") }
-    #expect(otherLine?.contains("*") == false)
+    let otherIsStarred = otherLine?.contains("*") ?? true
+    #expect(!otherIsStarred)
 }
 
 @Test func listShowsPixelDimensionsForHiDPIModesOnly() {
@@ -75,7 +80,8 @@ private let native = DisplayMode(
     #expect(modes[0]["pointWidth"] as? Int == 2560)
     #expect(modes[0]["pixelWidth"] as? Int == 5120)
     #expect(modes[0]["refreshMilliHz"] as? Int == 60_000)
-    #expect(modes[0]["isCurrent"] as? Bool == true)
+    let isCurrent = modes[0]["isCurrent"] as? Bool ?? false
+    #expect(isCurrent)
 }
 
 // MARK: - F2: Renderer.describe, one test per DisplayError case

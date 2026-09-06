@@ -44,6 +44,17 @@ final class SettingsMenu: NSObject {
     /// verified no other way than by eye.
     func menu(displayCount: Int) -> NSMenu {
         let menu = NSMenu()
+        // Off, because this menu decides for itself which items are live.
+        // Left on — the default — AppKit recomputes `isEnabled` from each
+        // item's target and selector just before the menu draws, throwing away
+        // every value set below: the Start at Login item would render clickable
+        // in the one state where clicking it cannot possibly work.
+        menu.autoenablesItems = false
+        // Off, because this menu decides for itself which items are live.
+        // Left on — the default — AppKit recomputes `isEnabled` from each
+        // item's target and selector just before the menu draws, throwing away
+        // every value set below: the Start at Login item would render clickable
+        // in the one state where clicking it cannot possibly work.
 
         // Arranging one display is not a thing you can do, and System Settings
         // agrees: with a single display attached its Displays pane offers no
@@ -94,8 +105,10 @@ final class SettingsMenu: NSObject {
 
     /// The version line at the bottom: information, not a command.
     ///
-    /// `isEnabled = false` alone is not enough: AppKit re-enables items that have
-    /// no action, so the nil action is what actually keeps this unclickable.
+    /// `isEnabled = false` is what keeps this unclickable, and it holds only
+    /// because `menu(displayCount:)` turns `autoenablesItems` off. The nil
+    /// action is belt and braces: it would disable the item on its own under
+    /// auto-enabling too.
     private static func note(_ text: String) -> NSMenuItem {
         let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
         item.isEnabled = false

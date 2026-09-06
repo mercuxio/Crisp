@@ -24,6 +24,15 @@ blind-recovery path, so its argument parser stays hand-rolled rather than taking
 
 `@testable import` of an `executableTarget` links and runs, which is how `displayctl` is tested.
 
+**Never write `== true` or `== false` inside `#expect`.** swift-testing 0.99.0 is built against
+swift-syntax 600, and under the current compiler its macro mis-resolves any comparison whose left
+operand is already a `Bool` or `Bool?` — it checks that operand alone and discards the comparison.
+`#expect(x == false)` therefore compiles, reads correctly, and passes for every value of `x`.
+Seventeen assertions in this suite were written that way and none had ever tested anything. Write
+the plain condition, or hoist the value into a `let` first (`??` inside `#expect` is mis-instrumented
+too). Only `Bool`/`Bool?` operands are affected. `boolComparisonsAreInvisibleToTheExpectMacro` pins
+it; CONTRIBUTING.md has the detail.
+
 ## Never apply a display mode unattended
 
 `displayctl set` and `displayctl restore` change what is on the screen. If the person who owns
