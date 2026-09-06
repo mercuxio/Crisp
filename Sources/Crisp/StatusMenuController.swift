@@ -49,6 +49,16 @@ final class StatusMenuController: NSObject {
     /// `MenuModel.selection(from:remembered:)`.
     private var selectedDisplay: CGDirectDisplayID?
 
+    /// The last few resolutions picked on each display, newest first.
+    ///
+    /// Session-scoped and keyed by `CGDirectDisplayID`, which is deliberate:
+    /// that ID is reassigned on replug (spec §9), so writing this to disk would
+    /// eventually hand one monitor's history to another. Persistent identity
+    /// arrives with presets, and this can outlive a launch then. Until it does,
+    /// a menu bar app that runs from login to logout remembers for as long as
+    /// most users will notice.
+    private var recents: [CGDirectDisplayID: [ModeSignature]] = [:]
+
     init(
         enumerator: DisplayEnumerating = CoreGraphicsEnumerator(),
         configurator: DisplayConfiguring = CoreGraphicsConfigurator()
@@ -108,25 +118,29 @@ final class StatusMenuController: NSObject {
             }
             selectedDisplay = id
 
-            if MenuModel.showsDisplayPicker(displayCount: ids.count) {
-                Self.addFullWidth(
-                    DisplayPickerView(
-                        items: try ids.map {
-                            DisplayPickerView.Item(
-                                id: $0, name: try enumerator.device(for: $0).localizedName)
-                        },
-                        selected: id,
-                        pick: { [weak self] picked in self?.select(picked) }),
-                    to: stack)
-                Self.addFullWidth(Self.separator(), to: stack)
-            }
+            // Drawn even for a single display, where it cannot switch to
+            // anything: one icon naming the screen these resolutions belong to
+            // is worth more than the two points of height it costs, and a panel
+            // that grows a header the moment a monitor is plugged in reads as a
+            // different panel.
+            Self.addFullWidth(
+                DisplayPickerView(
+                    items: try ids.map {
+                        DisplayPickerView.Item(
+                            id: $0, name: try enumerator.device(for: $0).localizedName)
+                    },
+                    selected: id,
+                    pick: { [weak self] picked in self?.select(picked) }),
+                to: stack)
+            Self.addFullWidth(Self.separator(), to: stack)
 
             let current = try enumerator.currentMode(for: id)
             let modes = try enumerator.modes(for: id)
 
             stack.addArrangedSubview(
                 ResolutionGridView(
-                    groups: MenuModel.groups(for: modes, current: current),
+                    groups: MenuModel.groups(
+                        for: modes, current: current, recents: recents[id] ?? []),
                     pick: { [weak self] signature in
                         // Closed first: the countdown opens from `apply`, and
                         // this panel floats above it otherwise.
@@ -261,6 +275,13 @@ final class StatusMenuController: NSObject {
                 target: [displayID: target],
                 previous: [displayID: previous])
             pending = change
+
+            // Recorded on selection, not on keep. A resolution you tried and
+            // reverted is still one you went looking for, and the dots are for
+            // finding a row again — not a record of what you settled on, which
+            // is what the checkmark is for.
+            recents[displayID] = MenuModel.remembering(
+                target.signature, in: recents[displayID] ?? [])
 
             confirmation.show(
                 headline: MenuModel.headline(for: target),

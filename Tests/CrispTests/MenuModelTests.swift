@@ -139,9 +139,50 @@ private func mode(
     #expect(flattened.filter(\.isCurrent).count == 1)
 }
 
-@Test func pickerAppearsOnlyWithMoreThanOneDisplay() {
-    #expect(MenuModel.showsDisplayPicker(displayCount: 1) == false)
-    #expect(MenuModel.showsDisplayPicker(displayCount: 2) == true)
+@Test func rememberingPutsTheNewestPickFirstAndKeepsOnlyThree() {
+    var recents: [ModeSignature] = []
+    for width in [1920, 1680, 1600, 1440] {
+        recents = MenuModel.remembering(mode(width, 1080).signature, in: recents)
+    }
+    #expect(recents.count == MenuModel.recentLimit)
+    #expect(recents.map(\.pointWidth) == [1440, 1600, 1680])
+}
+
+@Test func rememberingARepeatPickMovesItForwardRatherThanDuplicatingIt() {
+    let a = mode(1920, 1080).signature
+    let b = mode(1600, 900).signature
+    let recents = MenuModel.remembering(a, in: MenuModel.remembering(b, in: [a]))
+    #expect(recents == [a, b])
+}
+
+@Test func recentRowsAreMarkedAndTheCurrentRowIsNotDoubleMarked() {
+    let current = mode(1920, 1080)
+    let recent = mode(1600, 900)
+    let other = mode(1280, 720)
+
+    let rows = MenuModel.rows(
+        for: [current, recent, other],
+        current: current,
+        recents: [current.signature, recent.signature])
+
+    // The current row carries the checkmark, so its dot would be a second
+    // marker in a gutter that holds one — `isRecent` stays true and the view
+    // decides. What matters here is that both are reported honestly.
+    #expect(rows.first { $0.signature == recent.signature }?.isRecent == true)
+    #expect(rows.first { $0.signature == other.signature }?.isRecent == false)
+    #expect(rows.first { $0.signature == current.signature }?.isCurrent == true)
+}
+
+@Test func aRecentPickMarksItsRowEvenAfterTheGroupSwitchesRefreshRate() {
+    // Picked at 60 Hz; the row now stands for the 120 Hz member of the same
+    // group. Comparing signatures rather than groups would lose the dot.
+    let sixty = mode(1920, 1080, hz: 60_000)
+    let oneTwenty = mode(1920, 1080, hz: 120_000)
+
+    let rows = MenuModel.rows(
+        for: [sixty, oneTwenty], current: mode(1280, 720), recents: [sixty.signature])
+
+    #expect(rows.first { $0.signature == oneTwenty.signature }?.isRecent == true)
 }
 
 @Test func selectionKeepsTheRememberedDisplayWhileItIsStillAttached() {

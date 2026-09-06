@@ -167,13 +167,20 @@ final class RowButton: NSView {
     private let label = NSTextField(labelWithString: "")
     private let check = NSImageView()
     private var tracking: NSTrackingArea?
+
+    /// What the gutter glyph goes back to when the pointer leaves.
+    ///
+    /// Not always `labelColor`: a recency dot rests two steps down the label
+    /// hierarchy from the checkmark, so restoring one colour for both would
+    /// promote every dot the pointer had passed over.
+    private let restingTint: NSColor
     /// `NSControl` already spells this `isHighlighted`, and this is a plain
     /// view, so the name says what it actually tracks: the pointer.
     private var isHovering = false {
         didSet {
             guard isHovering != oldValue else { return }
             label.textColor = isHovering ? .alternateSelectedControlTextColor : .labelColor
-            check.contentTintColor = label.textColor
+            check.contentTintColor = isHovering ? label.textColor : restingTint
             needsDisplay = true
         }
     }
@@ -181,17 +188,17 @@ final class RowButton: NSView {
     init(row: MenuModel.Row, pick: @escaping (ModeSignature) -> Void) {
         self.pick = pick
         self.signature = row.signature
+        // The checkmark outranks the dot: where you are matters more than where
+        // you have been, and there is one gutter for both to live in.
+        self.restingTint = row.isCurrent ? .labelColor : .secondaryLabelColor
         super.init(frame: .zero)
 
         label.stringValue = row.title
         label.font = .menuFont(ofSize: 12)
         label.textColor = .labelColor
 
-        check.image = row.isCurrent
-            ? NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Current")?
-                .withSymbolConfiguration(.init(pointSize: 9, weight: .bold))
-            : nil
-        check.contentTintColor = .labelColor
+        check.image = Self.marker(isCurrent: row.isCurrent, isRecent: row.isRecent)
+        check.contentTintColor = restingTint
 
         for view in [check, label] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -213,7 +220,32 @@ final class RowButton: NSView {
         // VoiceOver needs the label because the row is a view, not a menu item.
         // No tooltip: it would pop up repeating the text already on the row.
         setAccessibilityRole(.menuItem)
-        setAccessibilityLabel(row.title)
+        setAccessibilityLabel(Self.spoken(row))
+    }
+
+    /// What sits in the gutter: a checkmark, a dot, or nothing.
+    ///
+    /// The dot is drawn at a fraction of the checkmark's size and two steps down
+    /// the label hierarchy. It is a hint about where you have been, and a hint
+    /// that competes with the checkmark for attention is worse than no hint.
+    private static func marker(isCurrent: Bool, isRecent: Bool) -> NSImage? {
+        if isCurrent {
+            return NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Current")?
+                .withSymbolConfiguration(.init(pointSize: 9, weight: .bold))
+        }
+        guard isRecent else { return nil }
+        return NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Recent")?
+            .withSymbolConfiguration(.init(pointSize: 5, weight: .regular))
+    }
+
+    /// The row read aloud, including whatever the gutter is showing.
+    ///
+    /// A glyph inside an image view VoiceOver never reaches is a marker only
+    /// sighted users get, so the distinction is spelled into the row's label.
+    private static func spoken(_ row: MenuModel.Row) -> String {
+        if row.isCurrent { return "\(row.title), current" }
+        if row.isRecent { return "\(row.title), recently used" }
+        return row.title
     }
 
     @available(*, unavailable)

@@ -17,6 +17,14 @@ enum MenuModel {
         let signature: ModeSignature
         let title: String
         let isCurrent: Bool
+
+        /// Among the last few resolutions the user picked on this display.
+        ///
+        /// Marked with a dot in the gutter, which is the checkmark's column —
+        /// so a row that is both current and recent shows the checkmark and no
+        /// dot. The two markers answer different questions and the checkmark's
+        /// is the more urgent one.
+        let isRecent: Bool
     }
 
     /// One display's block of rows, with the heading shown above it.
@@ -92,8 +100,10 @@ enum MenuModel {
     /// column, where `2560 × 1440` appeared twice with only a suffix telling
     /// them apart. Splitting makes the distinction structural instead of
     /// typographic — the same arrangement QuickRes uses.
-    static func groups(for modes: [DisplayMode], current: DisplayMode) -> [Group] {
-        let all = rows(for: modes, current: current)
+    static func groups(
+        for modes: [DisplayMode], current: DisplayMode, recents: [ModeSignature] = []
+    ) -> [Group] {
+        let all = rows(for: modes, current: current, recents: recents)
         let hiDPI = all.filter { $0.signature.pixelWidth > $0.signature.pointWidth }
         let normal = all.filter { $0.signature.pixelWidth <= $0.signature.pointWidth }
 
@@ -109,9 +119,23 @@ enum MenuModel {
     /// Unsafe modes are dropped for the same reason the CLI hides them by
     /// default — a mode the panel cannot display is how a user ends up unable
     /// to read the menu that would undo it.
-    static func rows(for modes: [DisplayMode], current: DisplayMode) -> [Row] {
+    static func rows(
+        for modes: [DisplayMode], current: DisplayMode, recents: [ModeSignature] = []
+    ) -> [Row] {
         let usable = modes.filter { !$0.isStretched && $0.isSafe }
         let currentKey = groupKey(current)
+
+        // Compared by group rather than by signature: a row stands for its whole
+        // refresh-rate group and applies the fastest member, so a recent pick
+        // recorded at 60 Hz must still light up the row that now offers 120.
+        let recentKeys = Set(
+            recents.map {
+                GroupKey(
+                    pointWidth: $0.pointWidth,
+                    pointHeight: $0.pointHeight,
+                    pixelWidth: $0.pixelWidth,
+                    pixelHeight: $0.pixelHeight)
+            })
 
         var fastest: [GroupKey: DisplayMode] = [:]
         for mode in usable {
@@ -140,16 +164,25 @@ enum MenuModel {
                 Row(
                     signature: mode.signature,
                     title: title(for: mode),
-                    isCurrent: groupKey(mode) == currentKey)
+                    isCurrent: groupKey(mode) == currentKey,
+                    isRecent: recentKeys.contains(groupKey(mode)))
             }
     }
 
-    /// Whether the monitor picker should be drawn above the list.
+    /// How many resolutions the dots remember.
+    static let recentLimit = 3
+
+    /// The recency list after the user picks `signature`, newest first.
     ///
-    /// With one screen there is nothing to pick: the row would name the only
-    /// display it could name and then refuse to do anything when clicked. With
-    /// two or more it is what tells the user whose resolutions these are.
-    static func showsDisplayPicker(displayCount: Int) -> Bool { displayCount > 1 }
+    /// Moves a repeat pick back to the front rather than adding it twice, so
+    /// three dots always mean three different resolutions. Trimmed to
+    /// `recentLimit`, which is what stops the dots from spreading down the whole
+    /// column until they say nothing at all.
+    static func remembering(
+        _ signature: ModeSignature, in recents: [ModeSignature]
+    ) -> [ModeSignature] {
+        ([signature] + recents.filter { $0 != signature }).prefix(recentLimit).map { $0 }
+    }
 
     /// Which display the panel should be showing.
     ///
