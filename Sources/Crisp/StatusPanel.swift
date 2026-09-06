@@ -32,6 +32,10 @@ final class StatusPanel: NSPanel {
     private var outsideClicks: Any?
     private var keys: Any?
 
+    /// The status item this is hanging off, kept so the dismiss monitor can
+    /// recognise a click on it. See `startWatching(quit:)`.
+    private weak var anchor: NSStatusBarButton?
+
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
@@ -132,8 +136,9 @@ final class StatusPanel: NSPanel {
     ///   the menu used to carry a hidden Quit item.
     func show(under button: NSStatusBarButton, quit: @escaping () -> Void) {
         guard let buttonWindow = button.window else { return }
-        let anchor = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
-        setFrameTopLeftPoint(origin(under: anchor, on: buttonWindow.screen))
+        self.anchor = button
+        let frame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        setFrameTopLeftPoint(origin(under: frame, on: buttonWindow.screen))
 
         // Activating is what lets the panel take a keypress at all, and it is
         // what InOut's window-style menu bar extra does too.
@@ -168,13 +173,23 @@ final class StatusPanel: NSPanel {
     ///   sees only clicks delivered to other applications. A local monitor would
     ///   also catch clicks inside Crisp's own settings dropdown and close the
     ///   panel out from under it — the exact behaviour this class exists to fix.
+    ///
+    ///   The status item is the one thing the monitor must not act on, because
+    ///   the menu bar delivers those clicks somewhere this monitor can still
+    ///   see. Closing here would race the button's own action: the panel would
+    ///   shut, `toggle` would then find nothing showing and open it again, and a
+    ///   second click on the icon would appear to do nothing at all.
     private func startWatching(quit: @escaping () -> Void) {
         stopWatching()
 
         outsideClicks = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
+            let location = NSEvent.mouseLocation
+            MainActor.assumeIsolated {
+                guard let self, !self.anchorFrame().contains(location) else { return }
+                self.close()
+            }
         }
 
         keys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -195,6 +210,14 @@ final class StatusPanel: NSPanel {
             }
             return nil
         }
+    }
+
+    /// The status item's rectangle in screen coordinates, or an empty one when
+    /// there is no status item to speak of — which contains no point, so the
+    /// monitor falls through to closing as usual.
+    private func anchorFrame() -> NSRect {
+        guard let anchor, let window = anchor.window else { return .zero }
+        return window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
     }
 
     private func stopWatching() {

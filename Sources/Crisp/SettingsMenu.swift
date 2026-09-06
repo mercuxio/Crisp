@@ -36,8 +36,6 @@ final class SettingsMenu: NSObject {
         launch.toolTip = LaunchAtLogin.note
         menu.addItem(launch)
 
-        menu.addItem(.separator())
-
         let restoreItem = NSMenuItem(
             title: "Restore Defaults", action: #selector(restorePressed), keyEquivalent: "")
         restoreItem.target = self
