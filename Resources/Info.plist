@@ -8,6 +8,10 @@
     <string>Crisp</string>
     <key>CFBundleExecutable</key>
     <string>Crisp</string>
+    <!-- An LSUIElement app has no dock tile, but Finder, Login Items and the
+         installer all still ask for this. -->
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>dev.houlanyit.Crisp</string>
     <key>CFBundlePackageType</key>

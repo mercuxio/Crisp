@@ -13,15 +13,24 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/build/Crisp.app"
+ICONSET="$ROOT/build/AppIcon.iconset"
+ICON="$ROOT/Resources/AppIcon.icns"
 
 cd "$ROOT"
 swift build --build-system native -c release --product Crisp
+
+# Regenerated every time rather than trusted from the repo, so the icon cannot
+# drift from the generator that defines it. The .icns is committed all the same,
+# for anything that wants the artwork without running a build.
+swift Tools/GenerateIcon.swift "$ICONSET"
+iconutil -c icns "$ICONSET" -o "$ICON"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$ROOT/.build/release/Crisp" "$APP/Contents/MacOS/Crisp"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 codesign --force --deep --sign - "$APP"
