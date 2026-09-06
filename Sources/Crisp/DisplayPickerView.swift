@@ -4,24 +4,29 @@ import CoreGraphics
 /// The row of monitor icons at the top of the panel: which display the
 /// resolutions below belong to.
 ///
-/// With one display attached there is nothing to choose, so the panel never
-/// builds this view — see `StatusMenuController.buildContent()`. With two or
-/// more, showing every display's modes at once made a panel taller than the
-/// screen it was offering to resize, and gave no clue which list was which
-/// beyond a name printed above it. One icon per display, one list below, is
-/// both shorter and less ambiguous.
+/// Showing every display's modes at once made a panel taller than the screen it
+/// was offering to resize, and gave no clue which list was which beyond a name
+/// printed above it. One icon per display, one list below, is both shorter and
+/// less ambiguous. The view is built even for a single display, where it selects
+/// nothing but still says whose resolutions these are.
 ///
 /// The icon is the same `display` symbol the menu bar item uses, numbered the
-/// way System Settings numbers displays in its arrangement view. The name is a
-/// tooltip rather than a label: "Built-in Retina Display" is far wider than the
-/// icon it would sit under, and every name would have to fit for any of them to
-/// line up.
+/// way System Settings numbers displays in its arrangement view.
+///
+/// Only the selected display is named in full, on its own line under the row.
+/// Naming all of them would mean every name fitting under its own icon for any
+/// of them to line up, and "Built-in Retina Display" is several times the width
+/// of a 16pt glyph. One name on one line has the whole panel to spread across,
+/// and it answers the question the icons raise — which of these am I on? — for
+/// the one icon where the answer matters. The rest keep their tooltips.
 @MainActor
 final class DisplayPickerView: NSView {
     /// One display, as much of it as this view needs to know.
     struct Item {
         let id: CGDirectDisplayID
-        /// Shown as the tooltip — `DisplayDevice.localizedName`.
+        /// The display's name as macOS knows it — see `DisplayNames`. Shown in
+        /// full when this display is the selected one, and as a tooltip
+        /// otherwise.
         let name: String
     }
 
@@ -34,6 +39,11 @@ final class DisplayPickerView: NSView {
         static let glyph: CGFloat = 16
         static let topPadding: CGFloat = 5
         static let bottomPadding: CGFloat = 5
+
+        /// Zero because the buttons already carry `hitSlop` below their glyphs,
+        /// which is the visual gap. Adding to it here would double-count.
+        static let nameGap: CGFloat = 0
+        static let nameSize: CGFloat = 11
     }
 
     init(
@@ -59,15 +69,46 @@ final class DisplayPickerView: NSView {
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
 
+        let name = Self.nameLabel(items.first { $0.id == selected }?.name ?? "")
+        addSubview(name)
+
         NSLayoutConstraint.activate([
+            // Pulled left by the slop so the glyphs, not the buttons' invisible
+            // edges, line up with everything else on the panel's margin.
             row.leadingAnchor.constraint(
                 equalTo: leadingAnchor, constant: Metrics.visibleInset - Metrics.hitSlop),
             row.trailingAnchor.constraint(
                 lessThanOrEqualTo: trailingAnchor,
                 constant: -(Metrics.visibleInset - Metrics.hitSlop)),
             row.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.topPadding),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.bottomPadding),
+
+            // The label has no slop to compensate for, so it sits on the margin
+            // itself and still lines up with the glyphs above it.
+            name.leadingAnchor.constraint(
+                equalTo: leadingAnchor, constant: Metrics.visibleInset),
+            name.trailingAnchor.constraint(
+                lessThanOrEqualTo: trailingAnchor, constant: -Metrics.visibleInset),
+            name.topAnchor.constraint(equalTo: row.bottomAnchor, constant: Metrics.nameGap),
+            name.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.bottomPadding),
         ])
+    }
+
+    /// The selected display's name, under the row of icons.
+    ///
+    /// Truncated rather than wrapped: the panel's width is set by the resolution
+    /// columns below, and letting a long monitor name run onto a second line
+    /// would make the header taller for reasons that have nothing to do with the
+    /// header. Sentence case, not the uppercase the resolution headings use —
+    /// "LG Ultra HD" is a product's name and shouting it back is a small
+    /// discourtesy.
+    private static func nameLabel(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: Metrics.nameSize)
+        label.textColor = .secondaryLabelColor
+        label.lineBreakMode = .byTruncatingTail
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
     }
 
     @available(*, unavailable)

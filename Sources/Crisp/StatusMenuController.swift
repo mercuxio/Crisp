@@ -123,11 +123,19 @@ final class StatusMenuController: NSObject {
             // is worth more than the two points of height it costs, and a panel
             // that grows a header the moment a monitor is plugged in reads as a
             // different panel.
+            // Asked once for the whole header rather than per icon: it walks
+            // every attached screen, and the answer cannot change midway
+            // through building one panel.
+            let names = DisplayNames.system()
+
             Self.addFullWidth(
                 DisplayPickerView(
-                    items: try ids.map {
+                    items: try ids.map { id in
                         DisplayPickerView.Item(
-                            id: $0, name: try enumerator.device(for: $0).localizedName)
+                            id: id,
+                            // The positional label is the fallback, not the
+                            // answer — see `DisplayNames`.
+                            name: try names[id] ?? enumerator.device(for: id).localizedName)
                     },
                     selected: id,
                     pick: { [weak self] picked in self?.select(picked) }),
