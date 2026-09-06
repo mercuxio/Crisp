@@ -82,12 +82,18 @@ final class DisplayPickerView: NSView {
                 constant: -(Metrics.visibleInset - Metrics.hitSlop)),
             row.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.topPadding),
 
-            // The label has no slop to compensate for, so it sits on the margin
-            // itself and still lines up with the glyphs above it.
+            // Auto Layout pins the *alignment rect*, and a text field insets its
+            // by 2pt on each side for a focus ring a label never draws. Pinning
+            // it to the margin therefore lands the letters 2pt right of the
+            // glyphs above them, which reads as a misalignment rather than as a
+            // margin. Backing the inset out puts the field's frame on the margin
+            // instead, which is where the buttons' frames already are.
             name.leadingAnchor.constraint(
-                equalTo: leadingAnchor, constant: Metrics.visibleInset),
+                equalTo: leadingAnchor,
+                constant: Metrics.visibleInset - name.alignmentRectInsets.left),
             name.trailingAnchor.constraint(
-                lessThanOrEqualTo: trailingAnchor, constant: -Metrics.visibleInset),
+                lessThanOrEqualTo: trailingAnchor,
+                constant: -(Metrics.visibleInset - name.alignmentRectInsets.right)),
             name.topAnchor.constraint(equalTo: row.bottomAnchor, constant: Metrics.nameGap),
             name.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.bottomPadding),
         ])

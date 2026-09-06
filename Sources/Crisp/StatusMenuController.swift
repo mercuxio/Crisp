@@ -33,10 +33,26 @@ final class StatusMenuController: NSObject {
     /// gear open its own dropdown without this one vanishing — see `StatusPanel`.
     private let dropdown = StatusPanel()
     private let confirmation = ConfirmationPanel()
-    private lazy var settings = SettingsMenu(restore: { [weak self] in self?.restoreDefaults() })
+    private lazy var settings = SettingsMenu(
+        restore: { [weak self] in self?.restoreDefaults() },
+        arrange: { [weak self] in self?.openArrangement() })
 
     /// The same page InOut's footer points at — one tip jar for both apps.
     private static let coffeeURL = URL(string: "https://buymeacoffee.com/benjamintan")!
+
+    /// System Settings' Displays pane, where the Arrange button lives.
+    ///
+    /// Crisp does not draw its own arrangement grid. Dragging displays around
+    /// is not a resolution switcher's job, the system's version already handles
+    /// mirroring and the menu bar's home along with placement, and a second
+    /// version of it would be one more thing to disagree with the first.
+    ///
+    /// This opens the pane, not the sheet: the arrangement sheet has no URL of
+    /// its own — it is a button inside the pane — and the only ways to reach it
+    /// directly would be to script the click, which needs an Accessibility grant
+    /// Crisp has no other reason to ask for.
+    private static let arrangementURL = URL(
+        string: "x-apple.systempreferences:com.apple.Displays-Settings.extension")!
 
     private var pending: PendingChange?
     private var ticker: Timer?
@@ -319,7 +335,30 @@ final class StatusMenuController: NSObject {
     /// before the gear could show anything. Anchored to a plain view in a plain
     /// window, this is just a menu, and the list underneath is undisturbed.
     @objc private func openSettings(_ sender: NSButton) {
-        settings.show(from: sender)
+        // Asked at open time rather than remembered: a display can be plugged in
+        // while the panel is sitting there, and the menu is rebuilt per click
+        // anyway. A failed enumeration reports one display, which hides the
+        // arrangement item — the safe way to be wrong, since the alternative is
+        // an item that opens a pane with nothing to arrange.
+        settings.show(
+            from: sender, displayCount: (try? enumerator.onlineDisplayIDs().count) ?? 1)
+    }
+
+    /// - Note: the panel closes first for the same reason it does for coffee —
+    ///   it floats at `.popUpMenu` level and would sit on top of the window it
+    ///   just asked for.
+    private func openArrangement() {
+        dropdown.close()
+        guard !NSWorkspace.shared.open(Self.arrangementURL) else { return }
+        // The pane identifier is Apple's and could be renamed in some future
+        // release. Landing the user in System Settings with a pane to pick is a
+        // poor outcome; silently doing nothing is a worse one.
+        if let settingsApp = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.apple.systempreferences")
+        {
+            NSWorkspace.shared.openApplication(
+                at: settingsApp, configuration: NSWorkspace.OpenConfiguration())
+        }
     }
 
     @objc private func openCoffee() {

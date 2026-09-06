@@ -8,21 +8,57 @@ import AppKit
 @MainActor
 final class SettingsMenu: NSObject {
     private let restore: () -> Void
+    private let arrange: () -> Void
 
-    /// - Parameter restore: runs `Restore Defaults`. Injected rather than
-    ///   reached for, so this menu never touches a display itself — the
-    ///   controller owns every write to the hardware.
-    init(restore: @escaping () -> Void) {
+    /// - Parameter restore: runs `Restore Defaults`.
+    /// - Parameter arrange: opens Display Arrangement.
+    ///
+    /// Both are injected rather than reached for, so this menu never touches a
+    /// display itself and never brings another app forward: the controller owns
+    /// every write to the hardware, and it is the only thing that knows the
+    /// floating panel has to be closed before something else takes the screen.
+    init(restore: @escaping () -> Void, arrange: @escaping () -> Void) {
         self.restore = restore
+        self.arrange = arrange
+    }
+
+    /// - Parameter gear: the button this drops out of. It stays on screen, and
+    ///   so does the panel behind it — see `StatusMenuController.openSettings`.
+    /// - Parameter displayCount: how many displays are online, which decides
+    ///   whether there is an arrangement to open at all.
+    func show(from gear: NSView, displayCount: Int) {
+        // The point is in the gear's own coordinates, and a view's origin is its
+        // bottom-left, so a small negative y puts the menu's top-left just under
+        // the glyph.
+        menu(displayCount: displayCount)
+            .popUp(positioning: nil, at: NSPoint(x: 0, y: -Self.gap), in: gear)
     }
 
     /// Built fresh on every click, because `LaunchAtLogin` is read from the
-    /// system rather than remembered and its answer can change between opens.
+    /// system rather than remembered and its answer can change between opens —
+    /// and so can the number of displays.
     ///
-    /// - Parameter gear: the button this drops out of. It stays on screen, and
-    ///   so does the panel behind it — see `StatusMenuController.openSettings`.
-    func show(from gear: NSView) {
+    /// Separate from `show(from:displayCount:)` so the contents can be checked
+    /// without a screen. `popUp` opens a tracking session and does not return
+    /// until the user dismisses it, so a menu built only inside `show` could be
+    /// verified no other way than by eye.
+    func menu(displayCount: Int) -> NSMenu {
         let menu = NSMenu()
+
+        // Arranging one display is not a thing you can do, and System Settings
+        // agrees: with a single display attached its Displays pane offers no
+        // arrangement at all. An item that led somewhere empty would be worse
+        // than no item, so on one display there is none.
+        if displayCount > 1 {
+            let arrangeItem = NSMenuItem(
+                title: Self.arrangementTitle, action: #selector(arrangePressed),
+                keyEquivalent: "")
+            arrangeItem.target = self
+            menu.addItem(arrangeItem)
+            // The rule separates the one item that leaves Crisp from the two
+            // that change it.
+            menu.addItem(.separator())
+        }
 
         let launch = NSMenuItem(
             title: "Start at Login", action: #selector(toggleLaunch), keyEquivalent: "")
@@ -46,11 +82,12 @@ final class SettingsMenu: NSObject {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
         menu.addItem(Self.note("Crisp \(version as? String ?? "—")"))
 
-        // The point is in the gear's own coordinates, and a view's origin is its
-        // bottom-left, so a small negative y puts the menu's top-left just under
-        // the glyph.
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -Self.gap), in: gear)
+        return menu
     }
+
+    /// The title of the item that opens System Settings, shared with the test
+    /// that checks when it appears.
+    static let arrangementTitle = "Display Arrangement…"
 
     /// Breathing room between the gear and the menu that drops out of it.
     private static let gap: CGFloat = 4
@@ -92,5 +129,9 @@ final class SettingsMenu: NSObject {
 
     @objc private func restorePressed() {
         restore()
+    }
+
+    @objc private func arrangePressed() {
+        arrange()
     }
 }

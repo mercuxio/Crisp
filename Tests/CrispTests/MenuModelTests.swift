@@ -2,9 +2,9 @@ import Testing
 @testable import Crisp
 @testable import DisplayCore
 
-/// `MenuModel` is the only part of the app with logic worth testing without a
-/// screen: which modes reach the menu, which row is checked, and how each is
-/// worded. The AppKit layers around it draw what these values say.
+/// `MenuModel` decides which modes reach the menu, which row is checked, and how
+/// each is worded. The AppKit layers around it draw what these values say — with
+/// one exception, the gear dropdown's display-count rule, in `SettingsMenuTests`.
 private func mode(
     _ pointWidth: Int,
     _ pointHeight: Int,
