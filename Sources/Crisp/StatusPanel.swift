@@ -109,8 +109,15 @@ final class StatusPanel: NSPanel {
     /// The panel is exactly as big as what it holds — no scroll view, no fixed
     /// height — so a display offering forty modes simply makes a taller panel,
     /// the same way the menu used to grow.
+    ///
+    /// Called while the panel is open too, when the monitor picker switches to
+    /// another display. A window grows from its bottom-left origin, so a taller
+    /// panel would otherwise push its own header up under the menu bar and out
+    /// from under the pointer. Pinning the top-left instead keeps the picker
+    /// exactly where the click left it and lets the list below it lengthen.
     func setContent(_ view: NSView) {
         guard let background = contentView else { return }
+        let topLeft = NSPoint(x: frame.minX, y: frame.maxY)
         background.subviews.forEach { $0.removeFromSuperview() }
 
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -124,6 +131,7 @@ final class StatusPanel: NSPanel {
 
         background.layoutSubtreeIfNeeded()
         setContentSize(view.fittingSize)
+        if isVisible { setFrameTopLeftPoint(topLeft) }
     }
 
     var isShowing: Bool { isVisible }

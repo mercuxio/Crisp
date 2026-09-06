@@ -16,13 +16,9 @@ import DisplayCore
 @MainActor
 final class StatusMenuController: NSObject {
     private enum Metrics {
-        /// Above the first heading or grid; the grid contributes 2 more of its
-        /// own, and the footer carries its bottom padding internally.
+        /// Above the picker or the grid; the grid contributes 2 more of its own,
+        /// and the footer carries its bottom padding internally.
         static let topPadding: CGFloat = 4
-        /// Around a display name — which appears only when there are two or
-        /// more displays to tell apart.
-        static let headingTop: CGFloat = 6
-        static let headingBottom: CGFloat = 2
         /// Around an error, which replaces the whole list and so has no grid
         /// beneath it to borrow margins from.
         static let messagePadding: CGFloat = 8
@@ -44,6 +40,14 @@ final class StatusMenuController: NSObject {
 
     private var pending: PendingChange?
     private var ticker: Timer?
+
+    /// The display whose resolutions the panel is showing.
+    ///
+    /// Remembered across openings so a user working on the external monitor
+    /// does not land back on the built-in one every time. Resolved against the
+    /// displays actually online each time the panel is built — see
+    /// `MenuModel.selection(from:remembered:)`.
+    private var selectedDisplay: CGDirectDisplayID?
 
     init(
         enumerator: DisplayEnumerating = CoreGraphicsEnumerator(),
@@ -96,29 +100,39 @@ final class StatusMenuController: NSObject {
 
         do {
             let ids = try enumerator.onlineDisplayIDs()
-            let showHeadings = MenuModel.showsHeadings(displayCount: ids.count)
-
-            for (index, id) in ids.enumerated() {
-                if index > 0 { Self.addFullWidth(Self.separator(), to: stack) }
-
-                let device = try enumerator.device(for: id)
-                let current = try enumerator.currentMode(for: id)
-                let modes = try enumerator.modes(for: id)
-
-                if showHeadings {
-                    stack.addArrangedSubview(Self.heading(device.localizedName))
-                }
-
-                stack.addArrangedSubview(
-                    ResolutionGridView(
-                        groups: MenuModel.groups(for: modes, current: current),
-                        pick: { [weak self] signature in
-                            // Closed first: the countdown opens from `apply`,
-                            // and this panel floats above it otherwise.
-                            self?.dropdown.close()
-                            self?.apply(signature, on: id)
-                        }))
+            // Nil means the list came back empty, which a Mac showing this menu
+            // bar should never manage. Routed through the same catch as any
+            // other failure rather than given a branch of its own.
+            guard let id = MenuModel.selection(from: ids, remembered: selectedDisplay) else {
+                throw DisplayError.noSuchDisplay(CGMainDisplayID())
             }
+            selectedDisplay = id
+
+            if MenuModel.showsDisplayPicker(displayCount: ids.count) {
+                Self.addFullWidth(
+                    DisplayPickerView(
+                        items: try ids.map {
+                            DisplayPickerView.Item(
+                                id: $0, name: try enumerator.device(for: $0).localizedName)
+                        },
+                        selected: id,
+                        pick: { [weak self] picked in self?.select(picked) }),
+                    to: stack)
+                Self.addFullWidth(Self.separator(), to: stack)
+            }
+
+            let current = try enumerator.currentMode(for: id)
+            let modes = try enumerator.modes(for: id)
+
+            stack.addArrangedSubview(
+                ResolutionGridView(
+                    groups: MenuModel.groups(for: modes, current: current),
+                    pick: { [weak self] signature in
+                        // Closed first: the countdown opens from `apply`, and
+                        // this panel floats above it otherwise.
+                        self?.dropdown.close()
+                        self?.apply(signature, on: id)
+                    }))
         } catch {
             stack.addArrangedSubview(Self.message(ErrorText.describe(error)))
         }
@@ -159,21 +173,16 @@ final class StatusMenuController: NSObject {
         return rule
     }
 
-    /// A display's name, above its grid.
+    /// Switch the panel to another display, in place.
     ///
-    /// Small, semibold and uppercased — the standard macOS section-header
-    /// treatment, and the same one the HiDPI/Normal column headings use, so the
-    /// two levels of heading read as one system.
-    private static func heading(_ text: String) -> NSView {
-        let label = NSTextField(
-            labelWithAttributedString: NSAttributedString(
-                string: text.uppercased(),
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                    .kern: 0.6,
-                ]))
-        return inset(label, top: Metrics.headingTop, bottom: Metrics.headingBottom)
+    /// The panel stays open and simply rebuilds around the new list, which is
+    /// why `setContent` pins its top-left: two displays rarely offer the same
+    /// number of modes, so the panel changes height under a pointer that is
+    /// still resting on the icon that was just clicked.
+    private func select(_ id: CGDirectDisplayID) {
+        guard id != selectedDisplay else { return }
+        selectedDisplay = id
+        dropdown.setContent(buildContent())
     }
 
     /// Shown in place of the list when the displays cannot be read at all.

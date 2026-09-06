@@ -144,9 +144,23 @@ enum MenuModel {
             }
     }
 
-    /// Whether display headings should be drawn.
+    /// Whether the monitor picker should be drawn above the list.
     ///
-    /// With one screen the heading is noise — it names the only thing it could
-    /// name. With two or more it is the only way to tell which list is which.
-    static func showsHeadings(displayCount: Int) -> Bool { displayCount > 1 }
+    /// With one screen there is nothing to pick: the row would name the only
+    /// display it could name and then refuse to do anything when clicked. With
+    /// two or more it is what tells the user whose resolutions these are.
+    static func showsDisplayPicker(displayCount: Int) -> Bool { displayCount > 1 }
+
+    /// Which display the panel should be showing.
+    ///
+    /// `remembered` is the last one the user picked, which survives the panel
+    /// closing but not the display being unplugged — hence the membership test
+    /// rather than a straight unwrap. Falling back to the first online display
+    /// matches what the panel showed before there was anything to pick.
+    static func selection(
+        from ids: [CGDirectDisplayID], remembered: CGDirectDisplayID?
+    ) -> CGDirectDisplayID? {
+        if let remembered, ids.contains(remembered) { return remembered }
+        return ids.first
+    }
 }

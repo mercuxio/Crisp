@@ -139,7 +139,19 @@ private func mode(
     #expect(flattened.filter(\.isCurrent).count == 1)
 }
 
-@Test func headingsAppearOnlyWithMoreThanOneDisplay() {
-    #expect(MenuModel.showsHeadings(displayCount: 1) == false)
-    #expect(MenuModel.showsHeadings(displayCount: 2) == true)
+@Test func pickerAppearsOnlyWithMoreThanOneDisplay() {
+    #expect(MenuModel.showsDisplayPicker(displayCount: 1) == false)
+    #expect(MenuModel.showsDisplayPicker(displayCount: 2) == true)
+}
+
+@Test func selectionKeepsTheRememberedDisplayWhileItIsStillAttached() {
+    #expect(MenuModel.selection(from: [1, 2, 3], remembered: 2) == 2)
+}
+
+@Test func selectionFallsBackToTheFirstDisplayWhenTheRememberedOneIsGone() {
+    // The user picked the external monitor and then unplugged it. Anything but
+    // a fallback here leaves the panel showing no resolutions at all.
+    #expect(MenuModel.selection(from: [1, 3], remembered: 2) == 1)
+    #expect(MenuModel.selection(from: [1, 3], remembered: nil) == 1)
+    #expect(MenuModel.selection(from: [], remembered: 2) == nil)
 }
