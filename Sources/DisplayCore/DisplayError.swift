@@ -25,4 +25,11 @@ public enum DisplayError: Error, Equatable, Sendable {
 
     /// The revert deadline passed before the change was confirmed.
     case confirmationExpired
+
+    /// The presets file was written by a newer version of the app.
+    ///
+    /// Refused rather than read: a format this build does not understand
+    /// cannot be safely rewritten, and overwriting it would destroy whatever
+    /// the newer version stored.
+    case storeSchemaUnsupported(version: Int)
 }

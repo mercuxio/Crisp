@@ -27,6 +27,11 @@ enum ErrorText {
             return "No mode on this display matches \(width) × \(height)."
         case .confirmationExpired:
             return "The confirmation window closed before the change was kept."
+        case .storeSchemaUnsupported:
+            // No version number in the wording: it means nothing to the person
+            // reading it, and the only useful move is the same either way.
+            return "Pitch's saved settings were written by a newer version and "
+                + "cannot be read. Updating Pitch will restore them."
         }
     }
 

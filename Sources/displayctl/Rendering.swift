@@ -144,6 +144,9 @@ public enum Renderer {
             // discipline as `.completionTimedOut` above.
             return "the confirmation deadline passed before your answer was recorded — "
                 + "the display may still be on the new mode; run 'displayctl restore' to recover"
+        case .storeSchemaUnsupported(let version):
+            return "the saved presets file is in format \(version), which this version does not "
+                + "understand — update the app, or delete the file to start over"
         }
     }
 }

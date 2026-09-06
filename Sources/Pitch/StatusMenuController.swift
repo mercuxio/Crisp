@@ -65,22 +65,23 @@ final class StatusMenuController: NSObject {
     /// `MenuModel.selection(from:remembered:)`.
     private var selectedDisplay: CGDirectDisplayID?
 
-    /// The last few resolutions picked on each display, newest first.
+    /// The last few resolutions picked on each display, newest first, kept
+    /// across launches.
     ///
-    /// Session-scoped and keyed by `CGDirectDisplayID`, which is deliberate:
-    /// that ID is reassigned on replug (spec §9), so writing this to disk would
-    /// eventually hand one monitor's history to another. Persistent identity
-    /// arrives with presets, and this can outlive a launch then. Until it does,
-    /// a menu bar app that runs from login to logout remembers for as long as
-    /// most users will notice.
-    private var recents: [CGDirectDisplayID: [ModeSignature]] = [:]
+    /// Not keyed by `CGDirectDisplayID`: that ID is reassigned on replug
+    /// (spec §9), so a file keyed on it would eventually hand one monitor's
+    /// history to another. `RecentsBook` matches on the stored identity
+    /// instead, and declines rather than guessing when two displays tie.
+    private let recents: RecentsBook
 
     init(
         enumerator: DisplayEnumerating = CoreGraphicsEnumerator(),
-        configurator: DisplayConfiguring = CoreGraphicsConfigurator()
+        configurator: DisplayConfiguring = CoreGraphicsConfigurator(),
+        recents: RecentsBook = RecentsBook()
     ) {
         self.enumerator = enumerator
         self.configurator = configurator
+        self.recents = recents
         self.coordinator = RevertCoordinator(configurator: configurator, clock: SystemClock())
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -164,7 +165,7 @@ final class StatusMenuController: NSObject {
             stack.addArrangedSubview(
                 ResolutionGridView(
                     groups: MenuModel.groups(
-                        for: modes, current: current, recents: recents[id] ?? []),
+                        for: modes, current: current, recents: recents.recents(for: id)),
                     pick: { [weak self] signature in
                         // Closed first: the countdown opens from `apply`, and
                         // this panel floats above it otherwise.
@@ -304,8 +305,12 @@ final class StatusMenuController: NSObject {
             // reverted is still one you went looking for, and the dots are for
             // finding a row again — not a record of what you settled on, which
             // is what the checkmark is for.
-            recents[displayID] = MenuModel.remembering(
-                target.signature, in: recents[displayID] ?? [])
+            recents.record(
+                target.signature, for: displayID,
+                // Only ever read by a human opening the file, so the
+                // enumerator's own name is enough — no need for the header's
+                // richer lookup.
+                name: (try? enumerator.device(for: displayID).localizedName) ?? "")
 
             confirmation.show(
                 headline: MenuModel.headline(for: target),
