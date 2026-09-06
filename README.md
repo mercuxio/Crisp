@@ -13,6 +13,26 @@ Requires **macOS 14 or later** on **Apple silicon**.
 
 ---
 
+## Install
+
+**Download the release.** Grab `Crisp-1.0.0.zip` from
+[Releases](https://github.com/mercuxio/Crisp/releases), unzip it, and drag
+`Crisp.app` to `/Applications`.
+
+The app is ad-hoc signed, not notarized — I don't pay for an Apple Developer
+account. macOS quarantines anything downloaded from the internet that isn't
+notarized, so the first launch will be refused with "Crisp is damaged and can't
+be opened" or "cannot be verified". Clear the quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Crisp.app
+```
+
+Then open it normally. If you'd rather not run that on a stranger's binary —
+reasonable — build it yourself; see [Building](#building).
+
+---
+
 ## What it does
 
 Click the monitor glyph in the menu bar and a panel drops down:
@@ -144,9 +164,8 @@ Version 1.0.0. The suite is green and the app has been used against real
 hardware, but the full multi-display verification matrix in
 `docs/milestone-3-carry-forward.md` has not been worked through end to end.
 
-Releases carry an ad-hoc signed `Crisp.app` in a zip. macOS has no notarization
-ticket for it, so the first launch needs a right-click → **Open**, or a trip to
-System Settings → Privacy & Security.
+Releases carry an ad-hoc signed `Crisp.app` in a zip; see
+[Install](#install) for the one command that gets it past Gatekeeper.
 
 ## License
 
